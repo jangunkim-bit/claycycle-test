@@ -3,6 +3,9 @@ import pandas as pd
 from scipy.optimize import least_squares
 
 
+_PROGRESSIVE_FIT_STATE = None
+
+
 def predict_delta_eT_pysr(e_b, stress_ratio):
     """Final PySR Equation ID 3 used in the manuscript."""
     return 0.045 * stress_ratio * (e_b ** 2.22)
@@ -71,12 +74,14 @@ def fit_monitoring_dataset(df, e_static=None, initial_guess=None):
     - eT, N*, and m remain free fitting parameters.
     - No monotonic trend is imposed on eT, N*, m, or ΔST.
     - Monitoring Data 1 uses one broad physically reasonable initial guess.
-    - Later monitoring stages use the previous-stage optimum as the initial guess.
+    - Later stages automatically use the previous-stage optimum when i_max grows.
     - A second generic initial guess is attempted only if the primary fit fails.
 
     The legacy e_static argument is accepted for backward compatibility and is
     intentionally not used in monitoring fitting.
     """
+    global _PROGRESSIVE_FIT_STATE
+
     i = df["i"].to_numpy(dtype=float)
     e = df["e"].to_numpy(dtype=float)
     e1 = float(e[0])
@@ -85,6 +90,16 @@ def fit_monitoring_dataset(df, e_static=None, initial_guess=None):
 
     if e_last >= e1:
         raise ValueError("Monitoring data must show an overall decrease in void ratio from e1 to the latest observation.")
+
+    # If the app starts a new calibration sequence, the first window normally
+    # has an i_max not larger than the final window from the previous run.
+    if initial_guess is None and _PROGRESSIVE_FIT_STATE is not None:
+        same_series = abs(e1 - _PROGRESSIVE_FIT_STATE.get("e1", e1)) <= max(1e-6, abs(e1) * 1e-5)
+        is_next_window = i_max > _PROGRESSIVE_FIT_STATE.get("imax", np.inf)
+        if same_series and is_next_window:
+            initial_guess = _PROGRESSIVE_FIT_STATE
+        else:
+            _PROGRESSIVE_FIT_STATE = None
 
     eps = max(1e-8, abs(e_last) * 1e-8)
     lower_e_t = max(0.001, 0.5 * e_last)
@@ -109,9 +124,9 @@ def fit_monitoring_dataset(df, e_static=None, initial_guess=None):
             initial_guess = None
 
     if initial_guess is None:
-        # A single broad start for the first monitoring window. It allows the
-        # short-window solution to move toward low m, large N*, and low eT when
-        # the measured i-e response supports that behavior.
+        # First-window start: deliberately broad, not a constraint. The optimizer
+        # is free to move toward low m, large N*, and low eT if the short i-e
+        # record supports that solution.
         x0 = np.array([
             np.clip(0.72 * e_last, lower[0] + eps, upper[0] - eps),
             np.clip(max(50.0 * i_max, 100.0), lower[1] * 10, upper[1] / 10),
@@ -152,7 +167,7 @@ def fit_monitoring_dataset(df, e_static=None, initial_guess=None):
             raise RuntimeError("Nonlinear least-squares fitting did not converge to a valid solution.") from exc
 
     e_t, n_star, m = best
-    return {
+    fit = {
         "e1": e1,
         "eT": float(e_t),
         "Nstar": float(n_star),
@@ -161,6 +176,14 @@ def fit_monitoring_dataset(df, e_static=None, initial_guess=None):
         "imax": i_max,
         "df": df,
     }
+    _PROGRESSIVE_FIT_STATE = {
+        "e1": e1,
+        "eT": float(e_t),
+        "Nstar": float(n_star),
+        "m": float(m),
+        "imax": i_max,
+    }
+    return fit
 
 
 def assessment_from_parameters(h_b_m, e_b, e_static, e_t, n_star, m,
