@@ -65,18 +65,17 @@ def read_monitoring_file(uploaded_file):
 
 def fit_monitoring_dataset(df, e_static=None, initial_guess=None):
     """
-    Fast free nonlinear least-squares fit of eT, N*, and m.
+    Fast progressive nonlinear least-squares fit of eT, N*, and m.
 
-    - e1 is fixed to the first measured void ratio.
-    - eT, N*, and m are free fitting parameters.
-    - m is bounded to 0.01–1.0; no monotonic trend is imposed between stages.
-    - A compact set of physically broad starting points is used.
-    - When progressive monitoring windows are available, the previous-stage
-      optimum is supplied as an additional warm start.
-    - The converged solution with the minimum RMSE is retained.
+    - The measured e1 at i = 1 is fixed for each monitoring dataset.
+    - eT, N*, and m remain free fitting parameters.
+    - No monotonic trend is imposed on eT, N*, m, or ΔST.
+    - Monitoring Data 1 uses one broad physically reasonable initial guess.
+    - Later monitoring stages use the previous-stage optimum as the initial guess.
+    - A second generic initial guess is attempted only if the primary fit fails.
 
     The legacy e_static argument is accepted for backward compatibility and is
-    intentionally not used in the monitoring fitting itself.
+    intentionally not used in monitoring fitting.
     """
     i = df["i"].to_numpy(dtype=float)
     e = df["e"].to_numpy(dtype=float)
@@ -94,77 +93,63 @@ def fit_monitoring_dataset(df, e_static=None, initial_guess=None):
         lower_e_t = max(0.001, 0.25 * e_last)
 
     lower = np.array([lower_e_t, 1e-3, 0.01], dtype=float)
-    upper = np.array([upper_e_t, max(1e8, i_max * 1e5), 1.0], dtype=float)
+    upper = np.array([upper_e_t, max(1e7, i_max * 1e4), 1.0], dtype=float)
 
     def residuals(params):
         return monitoring_accumulation(i, e1, *params) - e
 
-    starts = []
-
-    # Progressive warm start: very effective when Monitoring 1 -> 2 -> ...
-    # represent increasingly long observation windows.
     if initial_guess is not None:
         try:
-            starts.append(np.array([
+            x0 = np.array([
                 np.clip(float(initial_guess["eT"]), lower[0] + eps, upper[0] - eps),
                 np.clip(float(initial_guess["Nstar"]), lower[1] * 10, upper[1] / 10),
                 np.clip(float(initial_guess["m"]), lower[2] + 1e-4, upper[2] - 1e-4),
-            ]))
+            ], dtype=float)
         except Exception:
-            pass
+            initial_guess = None
 
-    # Eight broad starts rather than the former 100-start exhaustive grid.
-    # Small-m / large-N* starts are explicitly included so early short windows
-    # can converge to that physically plausible regime when the data support it.
-    start_specs = [
-        (0.55, 1000.0, 0.05),
-        (0.65, 300.0, 0.08),
-        (0.72, 100.0, 0.12),
-        (0.80, 30.0, 0.20),
-        (0.88, 10.0, 0.32),
-        (0.94, 3.0, 0.45),
-        (0.97, 1.0, 0.60),
-        (0.85, 300.0, 0.35),
-    ]
+    if initial_guess is None:
+        # A single broad start for the first monitoring window. It allows the
+        # short-window solution to move toward low m, large N*, and low eT when
+        # the measured i-e response supports that behavior.
+        x0 = np.array([
+            np.clip(0.72 * e_last, lower[0] + eps, upper[0] - eps),
+            np.clip(max(50.0 * i_max, 100.0), lower[1] * 10, upper[1] / 10),
+            0.20,
+        ], dtype=float)
 
-    for e_frac, n_mult, m0 in start_specs:
-        starts.append(np.array([
-            np.clip(e_last * e_frac, lower[0] + eps, upper[0] - eps),
-            np.clip(max(i_max * n_mult, 1.0), lower[1] * 10, upper[1] / 10),
-            m0,
-        ], dtype=float))
-
-    best = None
-    best_rmse = np.inf
-
-    for x0 in starts:
-        try:
-            result = least_squares(
-                residuals,
-                x0=x0,
-                bounds=(lower, upper),
-                method="trf",
-                loss="linear",
-                x_scale="jac",
-                ftol=1e-9,
-                xtol=1e-9,
-                gtol=1e-9,
-                max_nfev=5000,
-            )
-        except Exception:
-            continue
-
+    def run_fit(start):
+        result = least_squares(
+            residuals,
+            x0=start,
+            bounds=(lower, upper),
+            method="trf",
+            loss="linear",
+            x_scale="jac",
+            ftol=1e-8,
+            xtol=1e-8,
+            gtol=1e-8,
+            max_nfev=3000,
+        )
         if not result.success or not np.all(np.isfinite(result.x)):
-            continue
-
+            raise RuntimeError(result.message)
         pred = monitoring_accumulation(i, e1, *result.x)
         rmse = float(np.sqrt(np.mean((pred - e) ** 2)))
-        if rmse < best_rmse:
-            best_rmse = rmse
-            best = result.x.copy()
+        return result.x, rmse
 
-    if best is None:
-        raise RuntimeError("Nonlinear least-squares fitting did not converge to a valid solution.")
+    try:
+        best, best_rmse = run_fit(x0)
+    except Exception:
+        # One backup attempt only; this keeps web execution close to PR #6 speed.
+        fallback = np.array([
+            np.clip(0.90 * e_last, lower[0] + eps, upper[0] - eps),
+            np.clip(max(i_max, 1.0), lower[1] * 10, upper[1] / 10),
+            0.50,
+        ], dtype=float)
+        try:
+            best, best_rmse = run_fit(fallback)
+        except Exception as exc:
+            raise RuntimeError("Nonlinear least-squares fitting did not converge to a valid solution.") from exc
 
     e_t, n_star, m = best
     return {
