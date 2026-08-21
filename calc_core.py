@@ -8,9 +8,27 @@ def predict_delta_eT_pysr(e_b, stress_ratio):
     return 0.045 * stress_ratio * (e_b ** 2.22)
 
 
-def modified_accumulation(i, e_static, e_t, n_star, m):
+def modified_accumulation(i, e_start, e_t, n_star, m):
+    """Design-stage form used in the current framework."""
     i = np.asarray(i, dtype=float)
-    return e_t + (e_static - e_t) / (1.0 + np.power(np.maximum(i, 1e-12) / n_star, m))
+    return e_t + (e_start - e_t) / (1.0 + np.power(np.maximum(i, 1e-12) / n_star, m))
+
+
+def monitoring_accumulation(i, e1, e_t, n_star, m):
+    """
+    Monitoring fitting form of the modified accumulation model.
+
+    The first measured loading-phase void ratio e1 is fixed for each monitoring
+    dataset and only eT, N*, and m are fitted:
+
+        ei = eT + (e1-eT) [1 + ((i-1)/N*)^m]^-1
+
+    This makes the fitted curve pass exactly through e1 at i=1 and follows the
+    model form reported in Cha's dissertation for progressive fitting.
+    """
+    i = np.asarray(i, dtype=float)
+    x = np.maximum(i - 1.0, 0.0)
+    return e_t + (e1 - e_t) / (1.0 + np.power(x / n_star, m))
 
 
 def accumulation_ratio(i, n_star, m):
@@ -48,50 +66,100 @@ def read_monitoring_file(uploaded_file):
     clean["i"] = pd.to_numeric(clean["i"], errors="coerce")
     clean["e"] = pd.to_numeric(clean["e"], errors="coerce")
     clean = clean.dropna()
-    clean = clean[(clean["i"] > 0) & np.isfinite(clean["e"])]
+    clean = clean[(clean["i"] >= 1) & np.isfinite(clean["e"])]
     clean = clean.sort_values("i").drop_duplicates(subset="i", keep="last")
     if len(clean) < 4:
         raise ValueError("At least four valid i-e observations are required for free fitting of eT, N*, and m.")
     return clean
 
 
-def fit_monitoring_dataset(df, e_static):
+def fit_monitoring_dataset(df):
+    """
+    Free nonlinear least-squares fit of eT, N*, and m for one monitoring dataset.
+
+    - e1 is fixed to the first measured void ratio.
+    - eT is searched within 0.5*e_last < eT < e_last, consistent with the
+      parameter-search range described in Cha's dissertation.
+    - m is free within 0.01-1.0.
+    - Multiple starting points are tested; the solution with the minimum RMSE
+      is retained. No monotonic or trend constraint is imposed across datasets.
+    """
     i = df["i"].to_numpy(dtype=float)
     e = df["e"].to_numpy(dtype=float)
-    observed_min = float(np.min(e))
-    observed_max = float(np.max(e))
-    spread = max(observed_max - observed_min, 1e-4)
+    e1 = float(e[0])
+    e_last = float(e[-1])
+    i_max = float(np.max(i))
 
-    lower_e_t = max(0.001, observed_min - max(1.0, 5.0 * spread))
-    upper_e_t = observed_min - 1e-8
+    if e_last >= e1:
+        raise ValueError("Monitoring data must show an overall decrease in void ratio from e1 to the latest observation.")
+
+    eps = max(1e-8, abs(e_last) * 1e-8)
+    lower_e_t = max(0.001, 0.5 * e_last)
+    upper_e_t = e_last - eps
     if upper_e_t <= lower_e_t:
-        lower_e_t = max(0.001, upper_e_t * 0.5)
+        lower_e_t = max(0.001, 0.25 * e_last)
 
-    lower = np.array([lower_e_t, 1e-3, 0.05], dtype=float)
-    upper = np.array([upper_e_t, max(float(np.max(i)) * 1e5, 1e6), 2.0], dtype=float)
-    x0 = np.array([
-        np.clip(observed_min - max(0.01, 0.25 * spread), lower[0] + 1e-8, upper[0] - 1e-8),
-        np.clip(float(np.median(i)), lower[1] * 10, upper[1] / 10),
-        0.5,
-    ])
+    lower_n = 1e-3
+    upper_n = max(1e8, i_max * 1e5)
+    lower = np.array([lower_e_t, lower_n, 0.01], dtype=float)
+    upper = np.array([upper_e_t, upper_n, 1.0], dtype=float)
+
+    # Broad, physically neutral multistart grid. Early short windows are allowed
+    # to select small m and very large N* if that minimizes RMSE.
+    e_fracs = [0.55, 0.70, 0.85, 0.97]
+    n_mults = [0.5, 2.0, 10.0, 100.0, 1000.0]
+    m_starts = [0.05, 0.15, 0.35, 0.55, 0.85]
+
+    best = None
+    best_rmse = np.inf
 
     def residuals(params):
         e_t, n_star, m = params
-        return modified_accumulation(i, e_static, e_t, n_star, m) - e
+        return monitoring_accumulation(i, e1, e_t, n_star, m) - e
 
-    result = least_squares(
-        residuals, x0=x0, bounds=(lower, upper), method="trf",
-        loss="linear", max_nfev=50000,
-    )
-    if not result.success:
-        raise RuntimeError(result.message)
+    for e_frac in e_fracs:
+        e0_guess = np.clip(e_last * e_frac, lower[0] + eps, upper[0] - eps)
+        for n_mult in n_mults:
+            n0_guess = np.clip(max(i_max * n_mult, 1.0), lower[1] * 10, upper[1] / 10)
+            for m0 in m_starts:
+                x0 = np.array([e0_guess, n0_guess, m0], dtype=float)
+                try:
+                    result = least_squares(
+                        residuals,
+                        x0=x0,
+                        bounds=(lower, upper),
+                        method="trf",
+                        loss="linear",
+                        x_scale="jac",
+                        ftol=1e-12,
+                        xtol=1e-12,
+                        gtol=1e-12,
+                        max_nfev=20000,
+                    )
+                except Exception:
+                    continue
 
-    e_t, n_star, m = result.x
-    pred = modified_accumulation(i, e_static, e_t, n_star, m)
-    rmse = float(np.sqrt(np.mean((pred - e) ** 2)))
+                if not result.success or not np.all(np.isfinite(result.x)):
+                    continue
+
+                pred = monitoring_accumulation(i, e1, *result.x)
+                rmse = float(np.sqrt(np.mean((pred - e) ** 2)))
+                if rmse < best_rmse:
+                    best_rmse = rmse
+                    best = result.x.copy()
+
+    if best is None:
+        raise RuntimeError("Nonlinear least-squares fitting did not converge to a valid solution.")
+
+    e_t, n_star, m = best
     return {
-        "eT": float(e_t), "Nstar": float(n_star), "m": float(m),
-        "RMSE": rmse, "imax": float(np.max(i)), "df": df,
+        "e1": e1,
+        "eT": float(e_t),
+        "Nstar": float(n_star),
+        "m": float(m),
+        "RMSE": best_rmse,
+        "imax": i_max,
+        "df": df,
     }
 
 
