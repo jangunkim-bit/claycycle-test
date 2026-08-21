@@ -73,9 +73,13 @@ def read_monitoring_file(uploaded_file):
     return clean
 
 
-def fit_monitoring_dataset(df):
+def fit_monitoring_dataset(df, e_static=None):
     """
     Free nonlinear least-squares fit of eT, N*, and m for one monitoring dataset.
+
+    The optional e_static argument is accepted only for backward compatibility
+    with an older Streamlit process and is intentionally ignored by the current
+    monitoring-fitting logic.
 
     - e1 is fixed to the first measured void ratio.
     - eT is searched within 0.5*e_last < eT < e_last, consistent with the
