@@ -9,21 +9,24 @@ def apply_style():
         --navy:#16324F; --blue:#2E6F95; --muted:#667085; --line:#D9E2EC;
         --good:#1F7A5C; --bad:#B42318; --soft:#F8FAFC; --softblue:#EEF5F8;
       }
-      .block-container{max-width:1500px;padding-top:1.6rem;padding-bottom:4rem;}
+      .block-container{max-width:1580px;padding-top:1.35rem;padding-bottom:4rem;}
       h1,h2,h3{color:var(--navy);letter-spacing:-0.02em;}
-      h2{margin-top:1.5rem!important;}
-      .hero{padding:1.25rem 1.45rem 1.05rem;border:1px solid var(--line);border-radius:18px;
+      h2{margin-top:1.45rem!important;}
+      .hero{padding:1.18rem 1.45rem 1.02rem;border:1px solid var(--line);border-radius:18px;
             background:linear-gradient(135deg,#F8FAFC 0%,#EEF5F8 100%);margin-bottom:1.35rem;}
-      .hero-title{font-size:2.02rem;line-height:1.2;font-weight:760;color:var(--navy);margin-bottom:.35rem;}
-      .hero-sub{color:var(--muted);font-size:1rem;}
-      .section-tag{display:inline-block;padding:.24rem .64rem;border-radius:999px;background:#EAF1F6;
-                   color:var(--blue);font-weight:700;font-size:.82rem;margin-bottom:.2rem;}
-      .input-label{min-height:2.45rem;display:flex;align-items:flex-end;color:#344054;
-                   font-size:.91rem;font-weight:500;line-height:1.28;margin:.15rem 0 .28rem;}
+      .hero-title{font-size:clamp(1.55rem,2.2vw,1.95rem);line-height:1.16;font-weight:820;color:var(--navy);
+                  margin-bottom:.38rem;letter-spacing:-0.025em;}
+      .hero-sub{color:var(--muted);font-size:.98rem;}
+      @media (min-width:1220px){.hero-title{white-space:nowrap;}}
+      .stage-title{display:block;width:100%;padding:.58rem .8rem;margin:1.15rem 0 .35rem;
+                   border-left:5px solid var(--blue);background:#F3F7FA;border-radius:8px;
+                   color:var(--navy);font-size:1.16rem;font-weight:850;letter-spacing:.035em;}
+      .input-label{min-height:2.25rem;display:flex;align-items:flex-end;color:#344054;
+                   font-size:.91rem;font-weight:500;line-height:1.28;margin:.12rem 0 .28rem;}
       .result-card{border:1px solid var(--line);border-radius:12px;background:#FFFFFF;padding:.72rem .9rem;
-                   min-height:78px;display:flex;flex-direction:column;justify-content:center;}
+                   min-height:78px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 1px 2px rgba(16,24,40,.025);}
       .result-label{font-size:.84rem;color:var(--muted);margin-bottom:.18rem;}
-      .result-value{font-size:1.22rem;color:var(--navy);font-weight:760;letter-spacing:-0.01em;}
+      .result-value{font-size:1.22rem;color:var(--navy);font-weight:780;letter-spacing:-0.01em;}
       .status-good{background:#ECFDF3;color:var(--good);border:1px solid #ABEFC6;border-radius:12px;
                    padding:.8rem 1rem;font-weight:700;}
       .status-bad{background:#FEF3F2;color:var(--bad);border:1px solid #FECDCA;border-radius:12px;
@@ -32,7 +35,7 @@ def apply_style():
                    padding:.9rem 1.05rem;margin-bottom:.7rem;color:#1F2937;}
       div[data-testid="stMetric"]{border:1px solid var(--line);border-radius:12px;padding:.72rem .85rem;background:#FFF;}
       div[data-testid="stFileUploader"]{border:1px solid var(--line);border-radius:12px;padding:.55rem;background:#FBFCFD;}
-      div[data-testid="stNumberInput"]{margin-bottom:.15rem;}
+      div[data-testid="stNumberInput"], div[data-testid="stTextInput"]{margin-bottom:.15rem;}
       .stButton>button{border-radius:10px;font-weight:700;}
       .assessment-wrap{width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff;}
       table.assessment{width:100%;border-collapse:collapse;font-size:.91rem;}
@@ -55,6 +58,10 @@ def hero():
       <div class="hero-sub">Design-stage prediction, serviceability assessment, and monitoring-based calibration in one workflow.</div>
     </div>
     """, unsafe_allow_html=True)
+
+
+def stage_title(number, text):
+    st.markdown(f'<div class="stage-title">{number} · {text}</div>', unsafe_allow_html=True)
 
 
 def input_label(html):

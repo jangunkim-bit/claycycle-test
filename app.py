@@ -1,10 +1,10 @@
 import numpy as np
-import pandas as pd
 import streamlit as st
 
 from calc_core import (
     assessment_from_parameters,
     fit_monitoring_dataset,
+    predict_delta_eT_pysr,
     read_monitoring_file,
 )
 from charts import (
@@ -19,6 +19,7 @@ from style import (
     input_label,
     render_assessment_table,
     result_card,
+    stage_title,
 )
 
 
@@ -27,71 +28,93 @@ apply_style()
 hero()
 
 # -----------------------------------------------------------------------------
-# 1. Design input
+# 01. DESIGN STAGE
 # -----------------------------------------------------------------------------
-st.markdown('<span class="section-tag">01 · DESIGN STAGE</span>', unsafe_allow_html=True)
+stage_title("01", "DESIGN STAGE")
 st.header("1. Design Input Parameters")
-st.caption("Enter the ground condition, repetitive loading condition, and serviceability criterion.")
+st.caption("Enter the ground condition, repetitive loading condition, and design criterion.")
 
 with st.container(border=True):
-    c1, c2, c3, c4 = st.columns(4, gap="medium")
+    c1, c2, c3 = st.columns(3, gap="large")
 
     with c1:
-        st.markdown("**Ground condition**")
+        st.markdown("### Ground condition")
         input_label('Initial clay-layer thickness, <i>H</i><sub>0</sub> (m)')
-        h0 = st.number_input("H0 hidden", min_value=0.1, value=2.0, step=0.1, label_visibility="collapsed", key="h0")
-
-        input_label('Initial void ratio, <i>e</i><sub>0</sub>')
-        e0 = st.number_input("e0 hidden", min_value=0.05, value=1.6214, step=0.01, format="%.4f", label_visibility="collapsed", key="e0")
-
-        input_label('Baseline void ratio, <i>e</i><sub>b</sub>')
-        eb = st.number_input("eb hidden", min_value=0.05, value=1.2627, step=0.01, format="%.4f", label_visibility="collapsed", key="eb")
-
-    with c2:
-        st.markdown("**Static response**")
-        input_label('Compression index, <i>C</i><sub>c</sub>')
-        cc = st.number_input("Cc hidden", min_value=0.001, value=0.400, step=0.01, format="%.3f", label_visibility="collapsed", key="cc")
-
-        input_label('Initial vertical effective stress, <i>σ</i>′<sub>v0</sub> (kPa)')
-        sigma_v0 = st.number_input("sigma hidden", min_value=1.0, value=100.0, step=10.0, label_visibility="collapsed", key="sigma_v0")
-
-        input_label('Stress amplitude, Δ<i>σ</i> (kPa)')
-        delta_sigma = st.number_input("delta sigma hidden", min_value=0.1, value=300.0, step=10.0, label_visibility="collapsed", key="delta_sigma")
-
-    with c3:
-        st.markdown("**Repetitive loading**")
-        input_label('Loading frequency, <i>f</i> (mHz)')
-        f_mhz = st.number_input("frequency hidden", min_value=0.001, value=125.0, step=1.0, format="%.3f", label_visibility="collapsed", key="frequency")
-
-        input_label('Design number of cycles, <i>i</i><sub>design</sub>')
-        i_design = st.number_input("design cycles hidden", min_value=1, value=1_000_000, step=1000, label_visibility="collapsed", key="i_design")
-
-        input_label('Soil state')
-        st.text_input("soil state hidden", value="Normally consolidated clay (OCR = 1.0)", disabled=True, label_visibility="collapsed", key="soil_state")
-
-    # Static quantities are evaluated before rendering the design-criterion column.
-    e_static = eb - cc * np.log10((sigma_v0 + delta_sigma) / sigma_v0)
-    h_b = h0 * (1.0 + eb) / (1.0 + e0)
-    h_peak = h0 * (1.0 + e_static) / (1.0 + e0)
-    s_static_mm = (h0 - h_peak) * 1000.0
-
-    with c4:
-        st.markdown("**Design criterion**")
-        input_label('Allowable settlement factor, <i>S</i><sub>allow</sub> / <i>S</i><sub>static</sub>')
-        allow_factor = st.number_input("allow factor hidden", min_value=1.0, value=1.50, step=0.05, label_visibility="collapsed", key="allow_factor")
-
-        s_allow_mm = allow_factor * s_static_mm
-        input_label('Allowable settlement, <i>S</i><sub>allow</sub> (mm)')
-        st.number_input("allow settlement hidden", value=float(s_allow_mm), disabled=True, format="%.1f", label_visibility="collapsed", key="s_allow_display")
-
-        input_label('Δ<i>e</i><sub>T</sub> from PySR Equation ID 3')
-        delta_eT_design = st.number_input(
-            "delta eT hidden", min_value=0.0001, value=0.2268, step=0.005, format="%.4f",
-            label_visibility="collapsed", key="delta_eT_design",
-            help="Temporary manual input in this prototype. It will be replaced by the exact PySR Equation ID 3 expression.",
+        h0 = st.number_input(
+            "H0 hidden", min_value=0.1, value=2.0, step=0.1,
+            label_visibility="collapsed", key="h0"
         )
 
+        input_label('Initial void ratio, <i>e</i><sub>0</sub>')
+        e0 = st.number_input(
+            "e0 hidden", min_value=0.05, value=1.6214, step=0.01, format="%.4f",
+            label_visibility="collapsed", key="e0"
+        )
+
+        input_label('Compression index, <i>C</i><sub>c</sub>')
+        cc = st.number_input(
+            "Cc hidden", min_value=0.001, value=0.346, step=0.01, format="%.3f",
+            label_visibility="collapsed", key="cc"
+        )
+
+    with c2:
+        st.markdown("### Repetitive loading condition")
+        input_label('Initial vertical effective stress, <i>σ</i>′<sub>v0</sub> (kPa)')
+        sigma_v0 = st.number_input(
+            "sigma hidden", min_value=1.0, value=100.0, step=10.0,
+            label_visibility="collapsed", key="sigma_v0"
+        )
+
+        input_label('Stress amplitude, Δ<i>σ</i> (kPa)')
+        delta_sigma = st.number_input(
+            "delta sigma hidden", min_value=0.1, value=300.0, step=10.0,
+            label_visibility="collapsed", key="delta_sigma"
+        )
+
+        input_label('Loading frequency, <i>f</i> (mHz)')
+        f_mhz = st.number_input(
+            "frequency hidden", min_value=0.001, value=125.0, step=1.0, format="%.3f",
+            label_visibility="collapsed", key="frequency"
+        )
+
+    with c3:
+        st.markdown("### Design criterion")
+        input_label('Design number of cycles, <i>i</i><sub>design</sub>')
+        i_design_text = st.text_input(
+            "design cycles hidden", value="1,000,000",
+            label_visibility="collapsed", key="i_design_text"
+        )
+        try:
+            i_design = int(float(i_design_text.replace(",", "").strip()))
+            if i_design < 1:
+                raise ValueError
+        except ValueError:
+            st.error("Enter a valid positive number of design cycles, e.g., 1,000,000.")
+            i_design = 1_000_000
+
+        input_label('Allowable settlement, <i>S</i><sub>allow</sub> (mm)')
+        s_allow_mm = st.number_input(
+            "allow settlement hidden", min_value=0.0, value=562.4, step=10.0, format="%.1f",
+            label_visibility="collapsed", key="s_allow_mm"
+        )
+
+        input_label('Soil state')
+        st.text_input(
+            "soil state hidden", value="Normally consolidated clay (OCR = 1.0)",
+            disabled=True, label_visibility="collapsed", key="soil_state"
+        )
+
+# Design-stage automatic calculations.
+# e0 is defined at approximately 1 kPa in the manuscript symbol definition.
+sigma_ref = 1.0
 stress_ratio = delta_sigma / sigma_v0
+eb = e0 - cc * np.log10(sigma_v0 / sigma_ref)
+e_static = e0 - cc * np.log10((sigma_v0 + delta_sigma) / sigma_ref)
+h_b = h0 * (1.0 + eb) / (1.0 + e0)
+h_peak = h0 * (1.0 + e_static) / (1.0 + e0)
+s_static_mm = (h0 - h_peak) * 1000.0
+
+delta_eT_design = predict_delta_eT_pysr(eb, stress_ratio)
 e_t_design = e_static - delta_eT_design
 m_design = 0.5
 n_design = 177.7 * eb + 70.7 * stress_ratio + 46.59
@@ -101,16 +124,22 @@ design_assessment = assessment_from_parameters(
     s_static_mm, i_design, f_mhz, s_allow_mm,
 )
 
-m1, m2, m3, m4, m5 = st.columns(5, gap="small")
-with m1:
+st.markdown("#### Automatically calculated design-state parameters")
+r1, r2, r3, r4 = st.columns(4, gap="small")
+r5, r6, r7 = st.columns(3, gap="small")
+with r1:
+    result_card('Baseline void ratio, <i>e</i><sub>b</sub>', f"{eb:.4f}")
+with r2:
     result_card('Stress amplitude ratio, Δ<i>σ</i> / <i>σ</i>′<sub>v0</sub>', f"{stress_ratio:.3f}")
-with m2:
+with r3:
     result_card('Static void ratio, <i>e</i><sub>static</sub>', f"{e_static:.4f}")
-with m3:
+with r4:
+    result_card('PySR prediction, Δ<i>e</i><sub>T</sub>', f"{delta_eT_design:.4f}")
+with r5:
     result_card('Baseline layer thickness, <i>H</i><sub>b</sub>', f"{h_b:.4f} m")
-with m4:
+with r6:
     result_card('Characteristic cycle number, <i>N</i>*', f"{n_design:,.0f}")
-with m5:
+with r7:
     result_card('Curvature parameter, <i>m</i>', f"{m_design:.2f}")
 
 # -----------------------------------------------------------------------------
@@ -121,7 +150,7 @@ left, right = st.columns(2, gap="large")
 with left:
     st.subheader("2-1. Static Response")
     st.plotly_chart(
-        static_response_figure(sigma_v0, delta_sigma, eb, e_static, cc),
+        static_response_figure(sigma_v0, delta_sigma, e0, eb, e_static, cc, sigma_ref),
         use_container_width=True,
     )
     st.markdown('<div class="graph-result">', unsafe_allow_html=True)
@@ -135,7 +164,10 @@ with right:
         use_container_width=True,
     )
     st.markdown('<div class="graph-result">', unsafe_allow_html=True)
-    result_card('Terminal repetitive settlement, Δ<i>S</i><sub>T</sub> (<i>i</i> = ∞)', f'{design_assessment["delta_ST_mm"]:,.1f} mm')
+    result_card(
+        'Terminal repetitive settlement, Δ<i>S</i><sub>T</sub> (<i>i</i> = ∞)',
+        f'{design_assessment["delta_ST_mm"]:,.1f} mm'
+    )
     st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
@@ -150,9 +182,9 @@ else:
     st.markdown('<div class="status-bad">✕ Design-life serviceability criterion is not satisfied.</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# 4. Monitoring input
+# 02. MONITORING STAGE
 # -----------------------------------------------------------------------------
-st.markdown('<span class="section-tag">02 · MONITORING STAGE</span>', unsafe_allow_html=True)
+stage_title("02", "MONITORING STAGE")
 st.header("4. Monitoring Data Input")
 st.caption("Upload 1–10 monitoring datasets in i-e format. One dataset is sufficient to run the calibration.")
 
@@ -304,6 +336,7 @@ else:
 
 st.divider()
 st.caption(
-    "Prototype for research use. Monitoring calibration performs nonlinear least-squares free fitting of eT, N*, and m. "
-    "The design-stage ΔeT input is temporary and will be replaced by the exact PySR Equation ID 3 expression in the final version."
+    "Design-stage baseline void ratio is calculated from the static compression relation. "
+    "Terminal void ratio change is automatically predicted using PySR Equation ID 3. "
+    "Monitoring calibration performs nonlinear least-squares free fitting of eT, N*, and m."
 )

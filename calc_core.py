@@ -3,6 +3,11 @@ import pandas as pd
 from scipy.optimize import least_squares
 
 
+def predict_delta_eT_pysr(e_b, stress_ratio):
+    """Final PySR Equation ID 3 used in the manuscript."""
+    return 0.045 * stress_ratio * (e_b ** 2.22)
+
+
 def modified_accumulation(i, e_static, e_t, n_star, m):
     i = np.asarray(i, dtype=float)
     return e_t + (e_static - e_t) / (1.0 + np.power(np.maximum(i, 1e-12) / n_star, m))
