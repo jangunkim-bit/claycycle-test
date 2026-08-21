@@ -107,10 +107,6 @@ with st.container(border=True):
 # -----------------------------------------------------------------------------
 # Automatic design-stage calculations
 # -----------------------------------------------------------------------------
-# The manuscript working example defines e0 at the initial effective stress at H0/2.
-# To reproduce the working-example values without making eb a user input, the current
-# web prototype uses the working-example self-weight condition: gamma_sat = 19 kN/m3
-# and groundwater at the ground surface (gamma_w = 9.81 kN/m3).
 gamma_sat = 19.0
 gamma_w = 9.81
 gamma_sub = gamma_sat - gamma_w
@@ -218,7 +214,10 @@ for idx in range(10):
             help="Expected columns: i and e. If headers differ, the first two columns are used.",
         ))
 
-show_all_points = st.checkbox("Show all measured points in Graph 3", value=False)
+st.caption(
+    "Monitoring fitting fixes the first measured void ratio e1 for each dataset and freely fits eT, N*, and m "
+    "by nonlinear least squares. No monotonic trend is imposed between monitoring stages."
+)
 run_calibration = st.button("Run Monitoring Calibration", type="primary", use_container_width=True)
 
 if run_calibration:
@@ -228,7 +227,7 @@ if run_calibration:
             continue
         try:
             df_mon = read_monitoring_file(uploaded_file)
-            fit = fit_monitoring_dataset(df_mon, e_static)
+            fit = fit_monitoring_dataset(df_mon)
             fit["dataset"] = idx
             fit["filename"] = uploaded_file.name
             fit["delta_ST_mm"] = h_b * (e_static - fit["eT"]) / (1.0 + eb) * 1000.0
@@ -255,7 +254,7 @@ if fit_results:
         st.subheader("5-1. Calibrated Repetitive Response")
         st.plotly_chart(
             calibration_figure(
-                fit_results, e_static, e_t_design, n_design, m_design, i_design, show_all_points
+                fit_results, e_static, e_t_design, n_design, m_design, i_design
             ),
             use_container_width=True,
         )
@@ -355,6 +354,6 @@ else:
 st.divider()
 st.caption(
     "Baseline void ratio is calculated from the static compression relation at the initial mid-depth effective stress. "
-    "Terminal void ratio change is predicted using PySR Equation ID 3. Monitoring calibration performs nonlinear "
-    "least-squares free fitting of eT, N*, and m."
+    "Terminal void ratio change is predicted using PySR Equation ID 3. Monitoring calibration fixes each dataset's "
+    "first measured void ratio and performs nonlinear least-squares free fitting of eT, N*, and m."
 )
