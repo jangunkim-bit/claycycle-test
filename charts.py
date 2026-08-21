@@ -32,61 +32,61 @@ def _style_axes(fig):
     return fig
 
 
-def static_response_figure(sigma_v0, delta_sigma, e0, eb, e_static, cc, sigma_ref=1.0):
-    sig_min = max(1.0, sigma_ref)
-    sig_max = max(sigma_v0 + delta_sigma, sigma_v0) * 1.35
-    sig = np.logspace(np.log10(sig_min), np.log10(sig_max), 220)
-    e_sig = e0 - cc * np.log10(sig / sigma_ref)
+def static_response_figure(sigma_initial, sigma_v0, delta_sigma, e0, eb, e_static, cc):
+    peak_stress = sigma_v0 + delta_sigma
+    sigma_initial = max(float(sigma_initial), 0.1)
+    peak_stress = max(float(peak_stress), sigma_initial * 1.01)
+    sig = np.logspace(np.log10(sigma_initial), np.log10(peak_stress), 240)
+    e_sig = e0 - cc * np.log10(sig / sigma_initial)
 
     fig = go.Figure()
-    # Soft blue fill below the compression line for a cleaner engineering-dashboard look.
     fig.add_trace(go.Scatter(
         x=sig, y=e_sig, mode="lines", name="Static compression line",
-        line=dict(width=3.5, color=BLUE, shape="spline"),
-        fill="tozeroy", fillcolor="rgba(37,99,235,0.055)",
+        line=dict(width=3.7, color=BLUE),
         hovertemplate="σ′v = %{x:.1f} kPa<br>e = %{y:.4f}<extra></extra>",
     ))
-    fig.add_trace(go.Scatter(
-        x=[sigma_v0], y=[eb], mode="markers", name="Baseline state",
-        marker=dict(size=12, color=BLUE, line=dict(color="white", width=2)),
-        hovertemplate="e<sub>b</sub> = %{y:.4f}<extra>Baseline</extra>",
-    ))
-    fig.add_trace(go.Scatter(
-        x=[sigma_v0 + delta_sigma], y=[e_static], mode="markers", name="Peak static state",
-        marker=dict(size=12, color=NAVY, line=dict(color="white", width=2)),
-        hovertemplate="e<sub>static</sub> = %{y:.4f}<extra>Peak static</extra>",
-    ))
+
+    states = [
+        (sigma_initial, e0, "Initial state", "<i>e</i><sub>0</sub>", "#64748B"),
+        (sigma_v0, eb, "Baseline state", "<i>e</i><sub>b</sub>", BLUE),
+        (peak_stress, e_static, "Peak static state", "<i>e</i><sub>static</sub>", NAVY),
+    ]
+    for x, y, name, symbol, color in states:
+        fig.add_trace(go.Scatter(
+            x=[x], y=[y], mode="markers", name=name,
+            marker=dict(size=12, color=color, line=dict(color="white", width=2)),
+            hovertemplate=f"<b>{symbol} = {y:.4f}</b><br>σ′v = {x:.1f} kPa<extra>{name}</extra>",
+        ))
+
     fig.add_annotation(
-        x=sigma_v0, y=eb, text=f"<b><i>e</i><sub>b</sub> = {eb:.4f}</b>",
-        showarrow=True, arrowhead=2, ax=-45, ay=-42,
-        bgcolor="rgba(255,255,255,0.94)", bordercolor=BLUE, borderwidth=1,
+        x=sigma_v0, y=eb,
+        text=f"<b><i>e</i><sub>b</sub> = {eb:.4f}</b>",
+        showarrow=True, arrowhead=2, ax=-38, ay=-38,
+        bgcolor="rgba(255,255,255,0.96)", bordercolor=BLUE, borderwidth=1,
         font=dict(size=13, color=NAVY),
     )
     fig.add_annotation(
-        x=sigma_v0 + delta_sigma, y=e_static,
+        x=peak_stress, y=e_static,
         text=f"<b><i>e</i><sub>static</sub> = {e_static:.4f}</b>",
-        showarrow=True, arrowhead=2, ax=45, ay=42,
-        bgcolor="rgba(255,255,255,0.94)", bordercolor=NAVY, borderwidth=1,
+        showarrow=True, arrowhead=2, ax=-64, ay=40,
+        bgcolor="rgba(255,255,255,0.96)", bordercolor=NAVY, borderwidth=1,
         font=dict(size=13, color=NAVY),
     )
 
-    decade_min = int(np.floor(np.log10(sig_min)))
-    decade_max = int(np.ceil(np.log10(sig_max)))
-    tickvals = []
-    for d in range(decade_min, decade_max + 1):
-        for mult in [1, 2, 5]:
-            v = mult * (10 ** d)
-            if sig_min <= v <= sig_max:
-                tickvals.append(v)
-
+    x_min_log = np.log10(sigma_initial * 0.82)
+    x_max_log = np.log10(peak_stress * 1.18)
+    e_span = max(e0 - e_static, 0.05)
     fig.update_xaxes(
-        type="log", tickmode="array", tickvals=tickvals,
-        ticktext=[f"{v:g}" for v in tickvals],
+        type="log", range=[x_min_log, x_max_log],
+        tickmode="auto", nticks=7,
         title="Vertical effective stress, <i>σ</i>′<sub>v</sub> (kPa)",
     )
-    fig.update_yaxes(title="Void ratio, <i>e</i>", nticks=7)
+    fig.update_yaxes(
+        title="Void ratio, <i>e</i>", nticks=7,
+        range=[e_static - 0.12 * e_span, e0 + 0.12 * e_span],
+    )
     fig.update_layout(
-        height=470, margin=dict(l=60, r=30, t=25, b=70),
+        height=470, margin=dict(l=60, r=35, t=25, b=70),
         legend=dict(orientation="h", y=-0.25, x=0),
     )
     return _style_axes(fig)
@@ -99,24 +99,26 @@ def design_void_ratio_figure(e_static, e_t, n_star, m, i_design):
     e_nstar = float(modified_accumulation(np.array([n_star]), e_static, e_t, n_star, m)[0])
 
     fig = go.Figure()
-    # Terminal-state baseline, then filled prediction curve.
+
+    # Hoverable terminal-state line. Unlike a Plotly shape, this trace reports eT on hover.
     fig.add_trace(go.Scatter(
         x=i_grid, y=np.full_like(i_grid, e_t), mode="lines",
-        line=dict(width=0), hoverinfo="skip", showlegend=False,
+        name="Terminal void ratio, eT",
+        line=dict(width=1.9, color=RED, dash="dash"),
+        hovertemplate=f"<b>e<sub>T</sub> = {e_t:.4f}</b><extra>Terminal state</extra>",
     ))
     fig.add_trace(go.Scatter(
         x=i_grid, y=e_curve, mode="lines", name="Design-stage prediction",
-        line=dict(width=3.8, color=RED, shape="spline"),
+        line=dict(width=3.8, color=RED),
         fill="tonexty", fillcolor="rgba(226,74,74,0.10)",
-        hovertemplate="i = %{x:,.0f}<br>e = %{y:.4f}<extra></extra>",
+        hovertemplate="i = %{x:,.0f}<br>e = %{y:.4f}<extra>Design prediction</extra>",
     ))
     fig.add_trace(go.Scatter(
         x=[n_star], y=[e_nstar], mode="markers", name="50% accumulation",
         marker=dict(size=12, color=RED, symbol="diamond", line=dict(color="white", width=2)),
-        hovertemplate="N* = %{x:,.0f} cycles<br>e = %{y:.4f}<extra></extra>",
+        hovertemplate=f"<b>N* = {n_star:,.0f} cycles</b><br>e = {e_nstar:.4f}<extra>50% of ΔeT</extra>",
     ))
 
-    fig.add_hline(y=e_t, line_dash="dash", line_color=RED, line_width=1.8)
     fig.add_vline(x=n_star, line_dash="dot", line_color=NAVY, line_width=1.8)
     fig.add_annotation(
         x=n_star, y=e_nstar,
@@ -144,6 +146,7 @@ def design_void_ratio_figure(e_static, e_t, n_star, m, i_design):
     fig.update_layout(
         height=470, margin=dict(l=60, r=30, t=25, b=70),
         legend=dict(orientation="h", y=-0.25, x=0),
+        hoverdistance=30,
     )
     return _style_axes(fig)
 
