@@ -5,7 +5,6 @@ import streamlit as st
 from calc_core import (
     assessment_from_parameters,
     fit_monitoring_dataset,
-    make_assessment_table,
     read_monitoring_file,
 )
 from charts import (
@@ -14,7 +13,13 @@ from charts import (
     static_response_figure,
     terminal_settlement_evolution_figure,
 )
-from style import apply_style, hero
+from style import (
+    apply_style,
+    hero,
+    input_label,
+    render_assessment_table,
+    result_card,
+)
 
 
 st.set_page_config(page_title="Long-Term Settlement Assessment", page_icon="📈", layout="wide")
@@ -29,42 +34,64 @@ st.header("1. Design Input Parameters")
 st.caption("Enter the ground condition, repetitive loading condition, and serviceability criterion.")
 
 with st.container(border=True):
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4 = st.columns(4, gap="medium")
+
     with c1:
         st.markdown("**Ground condition**")
-        h0 = st.number_input("Initial clay-layer thickness, H0 (m)", min_value=0.1, value=2.0, step=0.1)
-        e0 = st.number_input("Initial void ratio, e0", min_value=0.05, value=1.6214, step=0.01, format="%.4f")
-        eb = st.number_input("Baseline void ratio, eb", min_value=0.05, value=1.2627, step=0.01, format="%.4f")
+        input_label('Initial clay-layer thickness, <i>H</i><sub>0</sub> (m)')
+        h0 = st.number_input("H0 hidden", min_value=0.1, value=2.0, step=0.1, label_visibility="collapsed", key="h0")
+
+        input_label('Initial void ratio, <i>e</i><sub>0</sub>')
+        e0 = st.number_input("e0 hidden", min_value=0.05, value=1.6214, step=0.01, format="%.4f", label_visibility="collapsed", key="e0")
+
+        input_label('Baseline void ratio, <i>e</i><sub>b</sub>')
+        eb = st.number_input("eb hidden", min_value=0.05, value=1.2627, step=0.01, format="%.4f", label_visibility="collapsed", key="eb")
+
     with c2:
         st.markdown("**Static response**")
-        cc = st.number_input("Compression index, Cc", min_value=0.001, value=0.346, step=0.01, format="%.3f")
-        sigma_v0 = st.number_input("Initial vertical effective stress, σ′v0 (kPa)", min_value=1.0, value=100.0, step=10.0)
-        delta_sigma = st.number_input("Stress amplitude, Δσ (kPa)", min_value=0.1, value=300.0, step=10.0)
+        input_label('Compression index, <i>C</i><sub>c</sub>')
+        cc = st.number_input("Cc hidden", min_value=0.001, value=0.400, step=0.01, format="%.3f", label_visibility="collapsed", key="cc")
+
+        input_label('Initial vertical effective stress, <i>σ</i>′<sub>v0</sub> (kPa)')
+        sigma_v0 = st.number_input("sigma hidden", min_value=1.0, value=100.0, step=10.0, label_visibility="collapsed", key="sigma_v0")
+
+        input_label('Stress amplitude, Δ<i>σ</i> (kPa)')
+        delta_sigma = st.number_input("delta sigma hidden", min_value=0.1, value=300.0, step=10.0, label_visibility="collapsed", key="delta_sigma")
+
     with c3:
         st.markdown("**Repetitive loading**")
-        f_mhz = st.number_input("Loading frequency, f (mHz)", min_value=0.001, value=125.0, step=1.0, format="%.3f")
-        i_design = st.number_input("Design number of cycles, idesign", min_value=1, value=1_000_000, step=1000)
-        st.text_input("Soil state", value="Normally consolidated clay (OCR = 1.0)", disabled=True)
+        input_label('Loading frequency, <i>f</i> (mHz)')
+        f_mhz = st.number_input("frequency hidden", min_value=0.001, value=125.0, step=1.0, format="%.3f", label_visibility="collapsed", key="frequency")
+
+        input_label('Design number of cycles, <i>i</i><sub>design</sub>')
+        i_design = st.number_input("design cycles hidden", min_value=1, value=1_000_000, step=1000, label_visibility="collapsed", key="i_design")
+
+        input_label('Soil state')
+        st.text_input("soil state hidden", value="Normally consolidated clay (OCR = 1.0)", disabled=True, label_visibility="collapsed", key="soil_state")
+
+    # Static quantities are evaluated before rendering the design-criterion column.
+    e_static = eb - cc * np.log10((sigma_v0 + delta_sigma) / sigma_v0)
+    h_b = h0 * (1.0 + eb) / (1.0 + e0)
+    h_peak = h0 * (1.0 + e_static) / (1.0 + e0)
+    s_static_mm = (h0 - h_peak) * 1000.0
+
     with c4:
         st.markdown("**Design criterion**")
-        allow_factor = st.number_input("Allowable settlement factor, Sallow / Sstatic", min_value=1.0, value=1.30, step=0.05)
-        st.markdown("**Prototype equation input**")
+        input_label('Allowable settlement factor, <i>S</i><sub>allow</sub> / <i>S</i><sub>static</sub>')
+        allow_factor = st.number_input("allow factor hidden", min_value=1.0, value=1.50, step=0.05, label_visibility="collapsed", key="allow_factor")
+
+        s_allow_mm = allow_factor * s_static_mm
+        input_label('Allowable settlement, <i>S</i><sub>allow</sub> (mm)')
+        st.number_input("allow settlement hidden", value=float(s_allow_mm), disabled=True, format="%.1f", label_visibility="collapsed", key="s_allow_display")
+
+        input_label('Δ<i>e</i><sub>T</sub> from PySR Equation ID 3')
         delta_eT_design = st.number_input(
-            "ΔeT from PySR Equation ID 3",
-            min_value=0.0001,
-            value=0.2268,
-            step=0.005,
-            format="%.4f",
+            "delta eT hidden", min_value=0.0001, value=0.2268, step=0.005, format="%.4f",
+            label_visibility="collapsed", key="delta_eT_design",
             help="Temporary manual input in this prototype. It will be replaced by the exact PySR Equation ID 3 expression.",
         )
 
 stress_ratio = delta_sigma / sigma_v0
-e_static = eb - cc * np.log10((sigma_v0 + delta_sigma) / sigma_v0)
-h_b = h0 * (1.0 + eb) / (1.0 + e0)
-h_peak = h0 * (1.0 + e_static) / (1.0 + e0)
-s_static_mm = (h0 - h_peak) * 1000.0
-s_allow_mm = allow_factor * s_static_mm
-
 e_t_design = e_static - delta_eT_design
 m_design = 0.5
 n_design = 177.7 * eb + 70.7 * stress_ratio + 46.59
@@ -74,12 +101,17 @@ design_assessment = assessment_from_parameters(
     s_static_mm, i_design, f_mhz, s_allow_mm,
 )
 
-m1, m2, m3, m4, m5 = st.columns(5)
-m1.metric("Δσ / σ′v0", f"{stress_ratio:.3f}")
-m2.metric("estatic", f"{e_static:.4f}")
-m3.metric("Hb", f"{h_b:.4f} m")
-m4.metric("N*", f"{n_design:,.0f}")
-m5.metric("m", f"{m_design:.2f}")
+m1, m2, m3, m4, m5 = st.columns(5, gap="small")
+with m1:
+    result_card('Stress amplitude ratio, Δ<i>σ</i> / <i>σ</i>′<sub>v0</sub>', f"{stress_ratio:.3f}")
+with m2:
+    result_card('Static void ratio, <i>e</i><sub>static</sub>', f"{e_static:.4f}")
+with m3:
+    result_card('Baseline layer thickness, <i>H</i><sub>b</sub>', f"{h_b:.4f} m")
+with m4:
+    result_card('Characteristic cycle number, <i>N</i>*', f"{n_design:,.0f}")
+with m5:
+    result_card('Curvature parameter, <i>m</i>', f"{m_design:.2f}")
 
 # -----------------------------------------------------------------------------
 # 2. Design-stage prediction
@@ -87,24 +119,31 @@ m5.metric("m", f"{m_design:.2f}")
 st.header("2. Design-Stage Long-Term Response Prediction")
 left, right = st.columns(2, gap="large")
 with left:
-    st.subheader("2-1. Static Consolidation Response and Reference State Determination")
+    st.subheader("2-1. Static Response")
     st.plotly_chart(
         static_response_figure(sigma_v0, delta_sigma, eb, e_static, cc),
         use_container_width=True,
     )
+    st.markdown('<div class="graph-result">', unsafe_allow_html=True)
+    result_card('Static consolidation settlement, <i>S</i><sub>static</sub>', f'{s_static_mm:,.1f} mm')
+    st.markdown('</div>', unsafe_allow_html=True)
+
 with right:
-    st.subheader("2-2. Long-Term Void Ratio Response under Repetitive Loading")
+    st.subheader("2-2. Repetitive Response")
     st.plotly_chart(
         design_void_ratio_figure(e_static, e_t_design, n_design, m_design, i_design),
         use_container_width=True,
     )
+    st.markdown('<div class="graph-result">', unsafe_allow_html=True)
+    result_card('Terminal repetitive settlement, Δ<i>S</i><sub>T</sub> (<i>i</i> = ∞)', f'{design_assessment["delta_ST_mm"]:,.1f} mm')
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # 3. Design-stage assessment
 # -----------------------------------------------------------------------------
 st.header("3. Design-Stage Settlement Assessment")
 st.caption("Key design-stage results: how much, how fast, and serviceability.")
-st.dataframe(make_assessment_table(design_assessment), use_container_width=True, hide_index=True)
+render_assessment_table(design_assessment)
 if design_assessment["satisfied"]:
     st.markdown('<div class="status-good">✓ Design-life serviceability criterion is satisfied.</div>', unsafe_allow_html=True)
 else:
@@ -163,7 +202,7 @@ if fit_results:
     g3, g4 = st.columns(2, gap="large")
 
     with g3:
-        st.subheader("5-1. Calibration of Long-Term Void Ratio Response Using Monitoring Data")
+        st.subheader("5-1. Calibrated Repetitive Response")
         st.plotly_chart(
             calibration_figure(
                 fit_results, e_static, e_t_design, n_design, m_design, i_design, show_all_points
@@ -172,26 +211,28 @@ if fit_results:
         )
 
     with g4:
-        st.subheader("5-2. Evolution of Predicted Terminal Repetitive Settlement with Monitoring Duration")
+        st.subheader("5-2. Terminal Settlement Updating")
         st.plotly_chart(
             terminal_settlement_evolution_figure(fit_results, design_assessment["delta_ST_mm"]),
             use_container_width=True,
         )
 
-    st.markdown("#### 5-3. Summary of Monitoring-Based Calibration Results")
-    calibration_table = pd.DataFrame([
-        {
-            "Monitoring data": f'Data {r["dataset"]}',
-            "imax (cycles)": f'{r["imax"]:,.0f}',
-            "eT": f'{r["eT"]:.5f}',
-            "N*": f'{r["Nstar"]:,.1f}',
-            "m": f'{r["m"]:.4f}',
-            "RMSE": f'{r["RMSE"]:.6f}',
-            "ΔST (mm)": f'{r["delta_ST_mm"]:.1f}',
-        }
-        for r in fit_results
-    ])
-    st.dataframe(calibration_table, use_container_width=True, hide_index=True)
+    st.markdown("#### 5-3. Monitoring Calibration Results")
+    rows = []
+    for r in fit_results:
+        rows.append(
+            f'<tr><td>Data {r["dataset"]}</td><td>{r["imax"]:,.0f}</td>'
+            f'<td>{r["eT"]:.5f}</td><td>{r["Nstar"]:,.1f}</td><td>{r["m"]:.4f}</td>'
+            f'<td>{r["RMSE"]:.6f}</td><td>{r["delta_ST_mm"]:.1f}</td></tr>'
+        )
+    calibration_html = (
+        '<div class="assessment-wrap"><table class="assessment"><thead><tr>'
+        '<th>Monitoring data</th><th><i>i</i><sub>max</sub> (cycles)</th>'
+        '<th><i>e</i><sub>T</sub></th><th><i>N</i>*</th><th><i>m</i></th>'
+        '<th>RMSE</th><th>Δ<i>S</i><sub>T</sub> (mm)</th>'
+        '</tr></thead><tbody>' + ''.join(rows) + '</tbody></table></div>'
+    )
+    st.markdown(calibration_html, unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
     # 6. Monitoring-calibrated assessment
@@ -202,13 +243,7 @@ if fit_results:
         h_b, eb, e_static, latest["eT"], latest["Nstar"], latest["m"],
         s_static_mm, i_design, f_mhz, s_allow_mm,
     )
-
-    design_table = make_assessment_table(design_assessment)
-    calibrated_table = make_assessment_table(calibrated)
-    comparison = design_table[["Category", "Evaluation", "Symbol"]].copy()
-    comparison["Design-stage"] = design_table["Result"]
-    comparison["Monitoring-calibrated"] = calibrated_table["Result"]
-    st.dataframe(comparison, use_container_width=True, hide_index=True)
+    render_assessment_table(design_assessment, calibrated)
 
     if calibrated["satisfied"]:
         st.markdown('<div class="status-good">✓ Monitoring-calibrated design-life serviceability criterion is satisfied.</div>', unsafe_allow_html=True)
@@ -255,8 +290,9 @@ if fit_results:
         )
 
     comment3 = (
-        f"The latest calibration uses monitoring data up to i = {latest['imax']:,.0f} cycles and gives "
-        f"eT = {latest['eT']:.5f}, N* = {latest['Nstar']:.1f}, m = {latest['m']:.4f}, and RMSE = {latest['RMSE']:.6f}. "
+        f"The latest calibration uses monitoring data up to <i>i</i> = {latest['imax']:,.0f} cycles and gives "
+        f"<i>e</i><sub>T</sub> = {latest['eT']:.5f}, <i>N</i>* = {latest['Nstar']:.1f}, "
+        f"<i>m</i> = {latest['m']:.4f}, and RMSE = {latest['RMSE']:.6f}. "
         "Graph 4 can be used to judge whether the predicted terminal repetitive settlement stabilizes as the monitoring duration increases."
     )
 
