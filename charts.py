@@ -1,6 +1,6 @@
 import numpy as np
 import plotly.graph_objects as go
-from calc_core import modified_accumulation, monitoring_accumulation
+from calc_core import modified_accumulation
 
 BLUE = "#2563EB"
 RED = "#E24A4A"
@@ -77,7 +77,8 @@ def static_response_figure(sigma_initial, sigma_v0, delta_sigma, e0, eb, e_stati
     x_max_log = np.log10(peak_stress * 1.18)
     e_span = max(e0 - e_static, 0.05)
     fig.update_xaxes(
-        type="log", range=[x_min_log, x_max_log], tickmode="auto", nticks=7,
+        type="log", range=[x_min_log, x_max_log],
+        tickmode="auto", nticks=7,
         title="Vertical effective stress, <i>σ</i>′<sub>v</sub> (kPa)",
     )
     fig.update_yaxes(
@@ -98,6 +99,8 @@ def design_void_ratio_figure(e_static, e_t, n_star, m, i_design):
     e_nstar = float(modified_accumulation(np.array([n_star]), e_static, e_t, n_star, m)[0])
 
     fig = go.Figure()
+
+    # Hoverable terminal-state line. Unlike a Plotly shape, this trace reports eT on hover.
     fig.add_trace(go.Scatter(
         x=i_grid, y=np.full_like(i_grid, e_t), mode="lines",
         name="Terminal void ratio, eT",
@@ -142,37 +145,35 @@ def design_void_ratio_figure(e_static, e_t, n_star, m, i_design):
     fig.update_yaxes(title="Void ratio, <i>e</i>", nticks=7)
     fig.update_layout(
         height=470, margin=dict(l=60, r=30, t=25, b=70),
-        legend=dict(orientation="h", y=-0.25, x=0), hoverdistance=30,
+        legend=dict(orientation="h", y=-0.25, x=0),
+        hoverdistance=30,
     )
     return _style_axes(fig)
 
 
-def calibration_figure(fit_results, e_static, e_t_design, n_design, m_design, i_design):
+def calibration_figure(fit_results, e_static, e_t_design, n_design, m_design, i_design, show_all_points):
     max_i_mon = max(x["imax"] for x in fit_results)
     i_plot_max = max(float(i_design), max_i_mon, 1e6)
     i_curve = np.logspace(0, np.log10(i_plot_max), 420)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=i_curve,
-        y=modified_accumulation(i_curve, e_static, e_t_design, n_design, m_design),
-        mode="lines", name="Design-stage prediction",
-        line=dict(width=3.5, dash="dash", color=RED),
-        hovertemplate="Design prediction<br>i = %{x:,.0f}<br>e = %{y:.4f}<extra></extra>",
+        x=i_curve, y=modified_accumulation(i_curve, e_static, e_t_design, n_design, m_design),
+        mode="lines", name="Design-stage prediction", line=dict(width=3.5, dash="dash", color=RED),
     ))
 
+    latest = fit_results[-1]
     for r in fit_results:
-        y_fit = monitoring_accumulation(i_curve, r["e1"], r["eT"], r["Nstar"], r["m"])
         fig.add_trace(go.Scatter(
-            x=i_curve, y=y_fit, mode="lines", name=f'Monitoring {r["dataset"]}',
-            line=dict(width=2.4),
-            hovertemplate=(
-                f'Monitoring {r["dataset"]}<br>'
-                'i = %{x:,.0f}<br>e = %{y:.4f}<br>'
-                f'eT = {r["eT"]:.5f}<br>N* = {r["Nstar"]:,.1f}<br>m = {r["m"]:.4f}'
-                '<extra></extra>'
-            ),
+            x=i_curve, y=modified_accumulation(i_curve, e_static, r["eT"], r["Nstar"], r["m"]),
+            mode="lines", name=f'Monitoring {r["dataset"]}', line=dict(width=2.2),
         ))
+        if show_all_points or r is latest:
+            d = r["df"]
+            fig.add_trace(go.Scatter(
+                x=d["i"], y=d["e"], mode="markers", name=f'Measured {r["dataset"]}',
+                marker=dict(size=5, opacity=0.45), showlegend=show_all_points or r is latest,
+            ))
 
     max_decade = int(np.ceil(np.log10(i_plot_max)))
     tickvals = [10 ** p for p in range(0, max_decade + 1)]
@@ -198,7 +199,6 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
         text=[f'D{r["dataset"]}' for r in fit_results], textposition="top center",
         name="Monitoring-based prediction", line=dict(width=3, color=BLUE, shape="spline"),
         marker=dict(size=10, color=BLUE, line=dict(color="white", width=2)),
-        hovertemplate="i<sub>max</sub> = %{x:,.0f}<br>Predicted ΔS<sub>T</sub> = %{y:.1f} mm<extra></extra>",
     ))
     fig.add_hline(
         y=design_delta_st_mm, line_dash="dash", line_color=RED, line_width=2,
