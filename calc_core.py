@@ -3,25 +3,14 @@ import pandas as pd
 from scipy.optimize import least_squares
 
 
-_PROGRESSIVE_FIT_STATE = None
-
-
 def predict_delta_eT_pysr(e_b, stress_ratio):
     """Final PySR Equation ID 3 used in the manuscript."""
     return 0.045 * stress_ratio * (e_b ** 2.22)
 
 
-def modified_accumulation(i, e_start, e_t, n_star, m):
-    """Design-stage form used in the current framework."""
+def modified_accumulation(i, e_static, e_t, n_star, m):
     i = np.asarray(i, dtype=float)
-    return e_t + (e_start - e_t) / (1.0 + np.power(np.maximum(i, 1e-12) / n_star, m))
-
-
-def monitoring_accumulation(i, e1, e_t, n_star, m):
-    """Monitoring form with the first measured void ratio e1 fixed."""
-    i = np.asarray(i, dtype=float)
-    x = np.maximum(i - 1.0, 0.0)
-    return e_t + (e1 - e_t) / (1.0 + np.power(x / n_star, m))
+    return e_t + (e_static - e_t) / (1.0 + np.power(np.maximum(i, 1e-12) / n_star, m))
 
 
 def accumulation_ratio(i, n_star, m):
@@ -59,131 +48,51 @@ def read_monitoring_file(uploaded_file):
     clean["i"] = pd.to_numeric(clean["i"], errors="coerce")
     clean["e"] = pd.to_numeric(clean["e"], errors="coerce")
     clean = clean.dropna()
-    clean = clean[(clean["i"] >= 1) & np.isfinite(clean["e"])]
+    clean = clean[(clean["i"] > 0) & np.isfinite(clean["e"])]
     clean = clean.sort_values("i").drop_duplicates(subset="i", keep="last")
     if len(clean) < 4:
         raise ValueError("At least four valid i-e observations are required for free fitting of eT, N*, and m.")
     return clean
 
 
-def fit_monitoring_dataset(df, e_static=None, initial_guess=None):
-    """
-    Fast progressive nonlinear least-squares fit of eT, N*, and m.
-
-    - The measured e1 at i = 1 is fixed for each monitoring dataset.
-    - eT, N*, and m remain free fitting parameters.
-    - No monotonic trend is imposed on eT, N*, m, or ΔST.
-    - Monitoring Data 1 uses one broad physically reasonable initial guess.
-    - Later stages automatically use the previous-stage optimum when i_max grows.
-    - A second generic initial guess is attempted only if the primary fit fails.
-
-    The legacy e_static argument is accepted for backward compatibility and is
-    intentionally not used in monitoring fitting.
-    """
-    global _PROGRESSIVE_FIT_STATE
-
+def fit_monitoring_dataset(df, e_static):
     i = df["i"].to_numpy(dtype=float)
     e = df["e"].to_numpy(dtype=float)
-    e1 = float(e[0])
-    e_last = float(e[-1])
-    i_max = float(np.max(i))
+    observed_min = float(np.min(e))
+    observed_max = float(np.max(e))
+    spread = max(observed_max - observed_min, 1e-4)
 
-    if e_last >= e1:
-        raise ValueError("Monitoring data must show an overall decrease in void ratio from e1 to the latest observation.")
-
-    # If the app starts a new calibration sequence, the first window normally
-    # has an i_max not larger than the final window from the previous run.
-    if initial_guess is None and _PROGRESSIVE_FIT_STATE is not None:
-        same_series = abs(e1 - _PROGRESSIVE_FIT_STATE.get("e1", e1)) <= max(1e-6, abs(e1) * 1e-5)
-        is_next_window = i_max > _PROGRESSIVE_FIT_STATE.get("imax", np.inf)
-        if same_series and is_next_window:
-            initial_guess = _PROGRESSIVE_FIT_STATE
-        else:
-            _PROGRESSIVE_FIT_STATE = None
-
-    eps = max(1e-8, abs(e_last) * 1e-8)
-    lower_e_t = max(0.001, 0.5 * e_last)
-    upper_e_t = e_last - eps
+    lower_e_t = max(0.001, observed_min - max(1.0, 5.0 * spread))
+    upper_e_t = observed_min - 1e-8
     if upper_e_t <= lower_e_t:
-        lower_e_t = max(0.001, 0.25 * e_last)
+        lower_e_t = max(0.001, upper_e_t * 0.5)
 
-    lower = np.array([lower_e_t, 1e-3, 0.01], dtype=float)
-    upper = np.array([upper_e_t, max(1e7, i_max * 1e4), 1.0], dtype=float)
+    lower = np.array([lower_e_t, 1e-3, 0.05], dtype=float)
+    upper = np.array([upper_e_t, max(float(np.max(i)) * 1e5, 1e6), 2.0], dtype=float)
+    x0 = np.array([
+        np.clip(observed_min - max(0.01, 0.25 * spread), lower[0] + 1e-8, upper[0] - 1e-8),
+        np.clip(float(np.median(i)), lower[1] * 10, upper[1] / 10),
+        0.5,
+    ])
 
     def residuals(params):
-        return monitoring_accumulation(i, e1, *params) - e
+        e_t, n_star, m = params
+        return modified_accumulation(i, e_static, e_t, n_star, m) - e
 
-    if initial_guess is not None:
-        try:
-            x0 = np.array([
-                np.clip(float(initial_guess["eT"]), lower[0] + eps, upper[0] - eps),
-                np.clip(float(initial_guess["Nstar"]), lower[1] * 10, upper[1] / 10),
-                np.clip(float(initial_guess["m"]), lower[2] + 1e-4, upper[2] - 1e-4),
-            ], dtype=float)
-        except Exception:
-            initial_guess = None
+    result = least_squares(
+        residuals, x0=x0, bounds=(lower, upper), method="trf",
+        loss="linear", max_nfev=50000,
+    )
+    if not result.success:
+        raise RuntimeError(result.message)
 
-    if initial_guess is None:
-        # First-window start: deliberately broad, not a constraint. The optimizer
-        # is free to move toward low m, large N*, and low eT if the short i-e
-        # record supports that solution.
-        x0 = np.array([
-            np.clip(0.72 * e_last, lower[0] + eps, upper[0] - eps),
-            np.clip(max(50.0 * i_max, 100.0), lower[1] * 10, upper[1] / 10),
-            0.20,
-        ], dtype=float)
-
-    def run_fit(start):
-        result = least_squares(
-            residuals,
-            x0=start,
-            bounds=(lower, upper),
-            method="trf",
-            loss="linear",
-            x_scale="jac",
-            ftol=1e-8,
-            xtol=1e-8,
-            gtol=1e-8,
-            max_nfev=3000,
-        )
-        if not result.success or not np.all(np.isfinite(result.x)):
-            raise RuntimeError(result.message)
-        pred = monitoring_accumulation(i, e1, *result.x)
-        rmse = float(np.sqrt(np.mean((pred - e) ** 2)))
-        return result.x, rmse
-
-    try:
-        best, best_rmse = run_fit(x0)
-    except Exception:
-        # One backup attempt only; this keeps web execution close to PR #6 speed.
-        fallback = np.array([
-            np.clip(0.90 * e_last, lower[0] + eps, upper[0] - eps),
-            np.clip(max(i_max, 1.0), lower[1] * 10, upper[1] / 10),
-            0.50,
-        ], dtype=float)
-        try:
-            best, best_rmse = run_fit(fallback)
-        except Exception as exc:
-            raise RuntimeError("Nonlinear least-squares fitting did not converge to a valid solution.") from exc
-
-    e_t, n_star, m = best
-    fit = {
-        "e1": e1,
-        "eT": float(e_t),
-        "Nstar": float(n_star),
-        "m": float(m),
-        "RMSE": best_rmse,
-        "imax": i_max,
-        "df": df,
+    e_t, n_star, m = result.x
+    pred = modified_accumulation(i, e_static, e_t, n_star, m)
+    rmse = float(np.sqrt(np.mean((pred - e) ** 2)))
+    return {
+        "eT": float(e_t), "Nstar": float(n_star), "m": float(m),
+        "RMSE": rmse, "imax": float(np.max(i)), "df": df,
     }
-    _PROGRESSIVE_FIT_STATE = {
-        "e1": e1,
-        "eT": float(e_t),
-        "Nstar": float(n_star),
-        "m": float(m),
-        "imax": i_max,
-    }
-    return fit
 
 
 def assessment_from_parameters(h_b_m, e_b, e_static, e_t, n_star, m,
