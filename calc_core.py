@@ -15,17 +15,7 @@ def modified_accumulation(i, e_start, e_t, n_star, m):
 
 
 def monitoring_accumulation(i, e1, e_t, n_star, m):
-    """
-    Monitoring fitting form of the modified accumulation model.
-
-    The first measured loading-phase void ratio e1 is fixed for each monitoring
-    dataset and only eT, N*, and m are fitted:
-
-        ei = eT + (e1-eT) [1 + ((i-1)/N*)^m]^-1
-
-    This makes the fitted curve pass exactly through e1 at i=1 and follows the
-    model form reported in Cha's dissertation for progressive fitting.
-    """
+    """Monitoring form with the first measured void ratio e1 fixed."""
     i = np.asarray(i, dtype=float)
     x = np.maximum(i - 1.0, 0.0)
     return e_t + (e1 - e_t) / (1.0 + np.power(x / n_star, m))
@@ -73,20 +63,20 @@ def read_monitoring_file(uploaded_file):
     return clean
 
 
-def fit_monitoring_dataset(df, e_static=None):
+def fit_monitoring_dataset(df, e_static=None, initial_guess=None):
     """
-    Free nonlinear least-squares fit of eT, N*, and m for one monitoring dataset.
-
-    The optional e_static argument is accepted only for backward compatibility
-    with an older Streamlit process and is intentionally ignored by the current
-    monitoring-fitting logic.
+    Fast free nonlinear least-squares fit of eT, N*, and m.
 
     - e1 is fixed to the first measured void ratio.
-    - eT is searched within 0.5*e_last < eT < e_last, consistent with the
-      parameter-search range described in Cha's dissertation.
-    - m is free within 0.01-1.0.
-    - Multiple starting points are tested; the solution with the minimum RMSE
-      is retained. No monotonic or trend constraint is imposed across datasets.
+    - eT, N*, and m are free fitting parameters.
+    - m is bounded to 0.01–1.0; no monotonic trend is imposed between stages.
+    - A compact set of physically broad starting points is used.
+    - When progressive monitoring windows are available, the previous-stage
+      optimum is supplied as an additional warm start.
+    - The converged solution with the minimum RMSE is retained.
+
+    The legacy e_static argument is accepted for backward compatibility and is
+    intentionally not used in the monitoring fitting itself.
     """
     i = df["i"].to_numpy(dtype=float)
     e = df["e"].to_numpy(dtype=float)
@@ -103,54 +93,75 @@ def fit_monitoring_dataset(df, e_static=None):
     if upper_e_t <= lower_e_t:
         lower_e_t = max(0.001, 0.25 * e_last)
 
-    lower_n = 1e-3
-    upper_n = max(1e8, i_max * 1e5)
-    lower = np.array([lower_e_t, lower_n, 0.01], dtype=float)
-    upper = np.array([upper_e_t, upper_n, 1.0], dtype=float)
+    lower = np.array([lower_e_t, 1e-3, 0.01], dtype=float)
+    upper = np.array([upper_e_t, max(1e8, i_max * 1e5), 1.0], dtype=float)
 
-    # Broad, physically neutral multistart grid. Early short windows are allowed
-    # to select small m and very large N* if that minimizes RMSE.
-    e_fracs = [0.55, 0.70, 0.85, 0.97]
-    n_mults = [0.5, 2.0, 10.0, 100.0, 1000.0]
-    m_starts = [0.05, 0.15, 0.35, 0.55, 0.85]
+    def residuals(params):
+        return monitoring_accumulation(i, e1, *params) - e
+
+    starts = []
+
+    # Progressive warm start: very effective when Monitoring 1 -> 2 -> ...
+    # represent increasingly long observation windows.
+    if initial_guess is not None:
+        try:
+            starts.append(np.array([
+                np.clip(float(initial_guess["eT"]), lower[0] + eps, upper[0] - eps),
+                np.clip(float(initial_guess["Nstar"]), lower[1] * 10, upper[1] / 10),
+                np.clip(float(initial_guess["m"]), lower[2] + 1e-4, upper[2] - 1e-4),
+            ]))
+        except Exception:
+            pass
+
+    # Eight broad starts rather than the former 100-start exhaustive grid.
+    # Small-m / large-N* starts are explicitly included so early short windows
+    # can converge to that physically plausible regime when the data support it.
+    start_specs = [
+        (0.55, 1000.0, 0.05),
+        (0.65, 300.0, 0.08),
+        (0.72, 100.0, 0.12),
+        (0.80, 30.0, 0.20),
+        (0.88, 10.0, 0.32),
+        (0.94, 3.0, 0.45),
+        (0.97, 1.0, 0.60),
+        (0.85, 300.0, 0.35),
+    ]
+
+    for e_frac, n_mult, m0 in start_specs:
+        starts.append(np.array([
+            np.clip(e_last * e_frac, lower[0] + eps, upper[0] - eps),
+            np.clip(max(i_max * n_mult, 1.0), lower[1] * 10, upper[1] / 10),
+            m0,
+        ], dtype=float))
 
     best = None
     best_rmse = np.inf
 
-    def residuals(params):
-        e_t, n_star, m = params
-        return monitoring_accumulation(i, e1, e_t, n_star, m) - e
+    for x0 in starts:
+        try:
+            result = least_squares(
+                residuals,
+                x0=x0,
+                bounds=(lower, upper),
+                method="trf",
+                loss="linear",
+                x_scale="jac",
+                ftol=1e-9,
+                xtol=1e-9,
+                gtol=1e-9,
+                max_nfev=5000,
+            )
+        except Exception:
+            continue
 
-    for e_frac in e_fracs:
-        e0_guess = np.clip(e_last * e_frac, lower[0] + eps, upper[0] - eps)
-        for n_mult in n_mults:
-            n0_guess = np.clip(max(i_max * n_mult, 1.0), lower[1] * 10, upper[1] / 10)
-            for m0 in m_starts:
-                x0 = np.array([e0_guess, n0_guess, m0], dtype=float)
-                try:
-                    result = least_squares(
-                        residuals,
-                        x0=x0,
-                        bounds=(lower, upper),
-                        method="trf",
-                        loss="linear",
-                        x_scale="jac",
-                        ftol=1e-12,
-                        xtol=1e-12,
-                        gtol=1e-12,
-                        max_nfev=20000,
-                    )
-                except Exception:
-                    continue
+        if not result.success or not np.all(np.isfinite(result.x)):
+            continue
 
-                if not result.success or not np.all(np.isfinite(result.x)):
-                    continue
-
-                pred = monitoring_accumulation(i, e1, *result.x)
-                rmse = float(np.sqrt(np.mean((pred - e) ** 2)))
-                if rmse < best_rmse:
-                    best_rmse = rmse
-                    best = result.x.copy()
+        pred = monitoring_accumulation(i, e1, *result.x)
+        rmse = float(np.sqrt(np.mean((pred - e) ** 2)))
+        if rmse < best_rmse:
+            best_rmse = rmse
+            best = result.x.copy()
 
     if best is None:
         raise RuntimeError("Nonlinear least-squares fitting did not converge to a valid solution.")
