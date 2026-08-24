@@ -103,6 +103,12 @@ def static_response_figure(sigma_v0, delta_sigma, e0, eb, e_static, cc):
 
 
 def design_void_ratio_figure(e_static, e_t, n_star, m, i_design):
+    """Design-stage repetitive response with a fixed engineering view.
+
+    The cycle range is intentionally fixed so Plotly autoscaling cannot collapse
+    the logarithmic x-axis around N*. This keeps the N* and terminal-state
+    annotations in meaningful positions across different input combinations.
+    """
     i_plot_max = max(float(i_design), 1e6)
     i_grid = np.logspace(0, np.log10(i_plot_max), 420)
     e_curve = modified_accumulation(i_grid, e_static, e_t, n_star, m)
@@ -132,12 +138,13 @@ def design_void_ratio_figure(e_static, e_t, n_star, m, i_design):
     fig.add_annotation(
         x=n_star, y=e_nstar,
         text=f"<b><i>N</i>* = {n_star:,.0f} cycles</b><br>50% of Δ<i>e</i><sub>T</sub>",
-        showarrow=True, arrowhead=2, ax=55, ay=-55,
+        showarrow=True, arrowhead=2, arrowsize=1.0, arrowwidth=1.8,
+        ax=48, ay=-42,
         bgcolor="rgba(255,255,255,0.96)", bordercolor=NAVY, borderwidth=1.2,
         font=dict(size=14, color=NAVY),
     )
     fig.add_annotation(
-        x=i_plot_max / 1.7, y=e_t,
+        x=i_plot_max / 1.6, y=e_t,
         text=f"<b><i>e</i><sub>T</sub> = {e_t:.4f}</b>",
         showarrow=False, yshift=18,
         bgcolor="rgba(255,255,255,0.96)", bordercolor=RED, borderwidth=1.2,
@@ -146,16 +153,31 @@ def design_void_ratio_figure(e_static, e_t, n_star, m, i_design):
 
     max_decade = int(np.ceil(np.log10(i_plot_max)))
     tickvals = [10 ** p for p in range(0, max_decade + 1)]
+    e_low = min(float(e_t), float(np.min(e_curve)), float(e_nstar))
+    e_high = max(float(e_static), float(np.max(e_curve)), float(e_nstar))
+    e_span = max(e_high - e_low, 0.01)
+
     fig.update_xaxes(
-        type="log", tickmode="array", tickvals=tickvals,
+        type="log",
+        tickmode="array", tickvals=tickvals,
         ticktext=[f"10<sup>{p}</sup>" if p > 0 else "1" for p in range(0, max_decade + 1)],
         title="Number of repetitive loading cycles, <i>i</i>",
+        range=[0.0, np.log10(i_plot_max)],
+        autorange=False,
+        fixedrange=True,
     )
-    fig.update_yaxes(title="Void ratio, <i>e</i>", nticks=7)
+    fig.update_yaxes(
+        title="Void ratio, <i>e</i>", nticks=7,
+        range=[e_low - 0.08 * e_span, e_high + 0.08 * e_span],
+        autorange=False,
+        fixedrange=True,
+    )
     fig.update_layout(
         height=470, margin=dict(l=60, r=30, t=25, b=70),
         legend=dict(orientation="h", y=-0.25, x=0),
         hoverdistance=30,
+        modebar=dict(remove=["autoScale2d", "resetScale2d", "zoomIn2d", "zoomOut2d", "pan2d", "zoom2d"]),
+        dragmode=False,
     )
     return _style_axes(fig)
 
