@@ -1,0 +1,3 @@
+PR19 is a visual-only update for the ClayCycle assessment header.
+The previous displayed framework image is replaced by assets/claycycle_overview.svg.
+No calculation, chart, fitting, or monitoring logic is changed.
