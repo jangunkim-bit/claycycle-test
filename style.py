@@ -19,7 +19,8 @@ def apply_style():
                   margin-bottom:.32rem;letter-spacing:-0.03em;}
       .hero-subtitle{font-size:clamp(.98rem,1.35vw,1.12rem);font-weight:650;color:#526170;margin-bottom:.38rem;}
       .hero-sub{color:var(--muted);font-size:.92rem;}
-      div[data-testid="stImage"]{margin-bottom:.65rem;}
+      div[data-testid="stImage"]{margin:.08rem 0 .78rem;}
+      div[data-testid="stImage"] img{border-radius:18px;box-shadow:0 6px 20px rgba(16,24,40,.055);}
       .stage-title{display:block;width:100%;padding:.58rem .8rem;margin:1.15rem 0 .35rem;
                    border-left:5px solid var(--blue);background:#F3F7FA;border-radius:8px;
                    color:var(--navy);font-size:1.16rem;font-weight:850;letter-spacing:.035em;}
@@ -52,6 +53,7 @@ def apply_style():
       @media (max-width:720px){
         .block-container{padding-top:2rem;}
         .hero{text-align:left;padding:1.2rem .95rem .95rem;}
+        div[data-testid="stImage"] img{border-radius:12px;}
       }
     </style>
     """, unsafe_allow_html=True)
@@ -66,7 +68,7 @@ def hero():
       <div class="hero-sub">Design-stage prediction, serviceability assessment, and monitoring-based calibration in one workflow.</div>
     </div>
     """, unsafe_allow_html=True)
-    st.image("assets/claycycle_framework.png", use_container_width=True)
+    st.image("assets/claycycle_overview.svg", use_container_width=True)
 
 
 def stage_title(number, text):
