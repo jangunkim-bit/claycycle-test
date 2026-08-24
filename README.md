@@ -9,4 +9,4 @@ ClayCycle connects two stages of long-term settlement assessment:
 - **Design stage:** prediction of static settlement, terminal repetitive settlement, accumulation rate, design-life settlement, and serviceability.
 - **Monitoring stage:** calibration of the repetitive response using measured cycle–void ratio (`i–e`) data and updating of the long-term settlement assessment.
 
-The repository contains the main assessment application (`app.py`) and a publication/QR landing page (`landing.py`).
+The repository contains the main Streamlit assessment application (`app.py`).
