@@ -32,12 +32,12 @@ def _style_axes(fig):
     return fig
 
 
-def static_response_figure(sigma_initial, sigma_v0, delta_sigma, e0, eb, e_static, cc):
-    peak_stress = sigma_v0 + delta_sigma
-    sigma_initial = max(float(sigma_initial), 0.1)
-    peak_stress = max(float(peak_stress), sigma_initial * 1.01)
-    sig = np.logspace(np.log10(sigma_initial), np.log10(peak_stress), 240)
-    e_sig = e0 - cc * np.log10(sig / sigma_initial)
+def static_response_figure(sigma_v0, delta_sigma, e0, eb, e_static, cc):
+    """Static e-log sigma'v response referenced to e0 at 1 kPa."""
+    sigma_ref = 1.0
+    peak_stress = max(float(sigma_v0 + delta_sigma), sigma_ref * 1.01)
+    sig = np.logspace(np.log10(sigma_ref), np.log10(peak_stress), 260)
+    e_sig = e0 - cc * np.log10(sig / sigma_ref)
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -46,39 +46,50 @@ def static_response_figure(sigma_initial, sigma_v0, delta_sigma, e0, eb, e_stati
         hovertemplate="σ′v = %{x:.1f} kPa<br>e = %{y:.4f}<extra></extra>",
     ))
 
-    states = [
-        (sigma_initial, e0, "Initial state", "<i>e</i><sub>0</sub>", "#64748B"),
-        (sigma_v0, eb, "Baseline state", "<i>e</i><sub>b</sub>", BLUE),
-        (peak_stress, e_static, "Peak static state", "<i>e</i><sub>static</sub>", NAVY),
-    ]
-    for x, y, name, symbol, color in states:
-        fig.add_trace(go.Scatter(
-            x=[x], y=[y], mode="markers", name=name,
-            marker=dict(size=12, color=color, line=dict(color="white", width=2)),
-            hovertemplate=f"<b>{symbol} = {y:.4f}</b><br>σ′v = {x:.1f} kPa<extra>{name}</extra>",
-        ))
+    fig.add_trace(go.Scatter(
+        x=[sigma_ref], y=[e0], mode="markers", name="Initial state",
+        marker=dict(size=12, color="#64748B", line=dict(color="white", width=2)),
+        hovertemplate=f"<b>e<sub>0</sub> = {e0:.4f}</b><br>σ′v = 1.0 kPa<extra>Initial state</extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=[sigma_v0], y=[eb], mode="markers+text", name="Baseline state",
+        marker=dict(size=13, color=BLUE, line=dict(color="white", width=2)),
+        text=[f"e<sub>b</sub> = {eb:.4f}"], textposition="top left",
+        textfont=dict(size=13, color=NAVY),
+        hovertemplate=f"<b>e<sub>b</sub> = {eb:.4f}</b><br>σ′v0 = {sigma_v0:.1f} kPa<extra>Baseline state</extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=[peak_stress], y=[e_static], mode="markers+text", name="Peak static state",
+        marker=dict(size=13, color=NAVY, line=dict(color="white", width=2)),
+        text=[f"e<sub>static</sub> = {e_static:.4f}"], textposition="bottom left",
+        textfont=dict(size=13, color=NAVY),
+        hovertemplate=(
+            f"<b>e<sub>static</sub> = {e_static:.4f}</b><br>"
+            f"σ′v0 + Δσ = {peak_stress:.1f} kPa<extra>Peak static state</extra>"
+        ),
+    ))
 
-    fig.add_annotation(
-        x=sigma_v0, y=eb,
-        text=f"<b><i>e</i><sub>b</sub> = {eb:.4f}</b>",
-        showarrow=True, arrowhead=2, ax=-38, ay=-38,
-        bgcolor="rgba(255,255,255,0.96)", bordercolor=BLUE, borderwidth=1,
-        font=dict(size=13, color=NAVY),
-    )
-    fig.add_annotation(
-        x=peak_stress, y=e_static,
-        text=f"<b><i>e</i><sub>static</sub> = {e_static:.4f}</b>",
-        showarrow=True, arrowhead=2, ax=-64, ay=40,
-        bgcolor="rgba(255,255,255,0.96)", bordercolor=NAVY, borderwidth=1,
-        font=dict(size=13, color=NAVY),
-    )
+    # Explicit logarithmic ticks prevent Plotly auto-tick expansion and keep
+    # the baseline marker at the actual sigma'_v0 location.
+    candidate_ticks = []
+    max_decade = int(np.ceil(np.log10(peak_stress * 1.15)))
+    for power in range(0, max_decade + 1):
+        for mult in (1, 2, 5):
+            value = mult * (10 ** power)
+            if sigma_ref <= value <= peak_stress * 1.15:
+                candidate_ticks.append(value)
+    if sigma_v0 not in candidate_ticks:
+        candidate_ticks.append(float(sigma_v0))
+    if peak_stress not in candidate_ticks:
+        candidate_ticks.append(float(peak_stress))
+    tickvals = sorted(set(candidate_ticks))
 
-    x_min_log = np.log10(sigma_initial * 0.82)
-    x_max_log = np.log10(peak_stress * 1.18)
     e_span = max(e0 - e_static, 0.05)
     fig.update_xaxes(
-        type="log", range=[x_min_log, x_max_log],
-        tickmode="auto", nticks=7,
+        type="log",
+        range=[np.log10(0.85), np.log10(peak_stress * 1.18)],
+        tickmode="array", tickvals=tickvals,
+        ticktext=[f"{v:g}" for v in tickvals],
         title="Vertical effective stress, <i>σ</i>′<sub>v</sub> (kPa)",
     )
     fig.update_yaxes(
