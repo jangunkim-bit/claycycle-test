@@ -221,19 +221,30 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
         latest_change_pct = None
         is_stable = False
 
+    point_labels = [f'D{r["dataset"]}' for r in fit_results]
+    point_labels[-1] = f'D{fit_results[-1]["dataset"]} (Latest)'
+    marker_sizes = [10] * len(xvals)
+    marker_sizes[-1] = 14
+    marker_colors = [BLUE] * len(xvals)
+    marker_colors[-1] = GREEN
+
     fig.add_trace(go.Scatter(
         x=xvals, y=yvals, mode="lines+markers+text",
-        text=[f'D{r["dataset"]}' for r in fit_results], textposition="top center",
+        text=point_labels, textposition="top center",
         name="Monitoring-based prediction", line=dict(width=3, color=BLUE, shape="spline"),
-        marker=dict(size=10, color=BLUE, line=dict(color="white", width=2)),
+        marker=dict(size=marker_sizes, color=marker_colors, line=dict(color="white", width=2)),
+        hovertemplate="i<sub>max</sub> = %{x:,.0f}<br>ΔS<sub>T</sub> = %{y:.2f} mm<extra></extra>",
     ))
+
     fig.add_hline(
         y=design_delta_st_mm, line_dash="dash", line_color=RED, line_width=2,
-        annotation_text="Design-stage Δ<i>S</i><sub>T</sub>", annotation_position="bottom right",
+        annotation_text=f"Design-stage Δ<i>S</i><sub>T</sub> = {design_delta_st_mm:.1f} mm",
+        annotation_position="bottom right",
     )
     fig.add_hline(
-        y=latest_delta_st, line_dash="dot", line_color=BLUE, line_width=2,
-        annotation_text="Monitoring-updated Δ<i>S</i><sub>T</sub>", annotation_position="top right",
+        y=latest_delta_st, line_dash="dot", line_color=GREEN, line_width=2.3,
+        annotation_text=f"Monitoring-updated Δ<i>S</i><sub>T</sub> = {latest_delta_st:.1f} mm",
+        annotation_position="bottom right",
     )
 
     if is_stable:
@@ -253,10 +264,12 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
         status_color = RED
         status_bg = "rgba(226,74,74,0.10)"
 
+    # Keep the status box in the upper-right empty portion of the chart so it
+    # does not overlap the early monitoring points or their labels.
     fig.add_annotation(
-        x=0.03, y=0.97, xref="paper", yref="paper",
+        x=0.97, y=0.97, xref="paper", yref="paper",
         text=status_text, showarrow=False,
-        xanchor="left", yanchor="top", align="left",
+        xanchor="right", yanchor="top", align="left",
         bgcolor=status_bg, bordercolor=status_color, borderwidth=1.5, borderpad=8,
         font=dict(size=15, color=status_color),
     )
