@@ -11,8 +11,8 @@ from charts import (
     calibration_figure,
     design_void_ratio_figure,
     static_response_figure,
-    terminal_settlement_evolution_figure,
 )
+from monitoring_ui import active_monitoring_result, render_terminal_settlement_selector
 from style import (
     apply_style,
     hero,
@@ -259,6 +259,7 @@ for msg in fit_errors:
 # -----------------------------------------------------------------------------
 if fit_results:
     fit_results = sorted(fit_results, key=lambda x: x["imax"])
+
     st.markdown('<div id="monitoring-calibration" class="section-anchor"></div>', unsafe_allow_html=True)
     st.header("5. Monitoring-Based Calibration and Long-Term Prediction Updating")
     g3, g4 = st.columns(2, gap="large")
@@ -274,10 +275,13 @@ if fit_results:
 
     with g4:
         st.subheader("5-2. Terminal Settlement Updating")
-        st.plotly_chart(
-            terminal_settlement_evolution_figure(fit_results, design_assessment["delta_ST_mm"]),
-            use_container_width=True,
+        render_terminal_settlement_selector(
+            fit_results, design_assessment["delta_ST_mm"]
         )
+
+    active = active_monitoring_result(fit_results)
+    active_is_latest = active is fit_results[-1]
+    active_suffix = "Latest" if active_is_latest else "Selected"
 
     st.markdown("#### 5-3. Monitoring Calibration Results")
     rows = []
@@ -301,9 +305,13 @@ if fit_results:
     # -------------------------------------------------------------------------
     st.markdown('<div id="monitoring-assessment" class="section-anchor"></div>', unsafe_allow_html=True)
     st.header("6. Monitoring-Calibrated Settlement Assessment")
-    latest = fit_results[-1]
+    st.caption(
+        f'Assessment based on Data {active["dataset"]} ({active_suffix}) '
+        f'up to i = {active["imax"]:,.0f} cycles. Select another D-point in Graph 5-2 to update this assessment.'
+    )
+
     calibrated = assessment_from_parameters(
-        h_b, eb, e_static, latest["eT"], latest["Nstar"], latest["m"],
+        h_b, eb, e_static, active["eT"], active["Nstar"], active["m"],
         s_static_mm, i_design, f_mhz, s_allow_mm,
     )
     render_assessment_table(design_assessment, calibrated)
@@ -320,22 +328,23 @@ if fit_results:
     design_dst = design_assessment["delta_ST_mm"]
     calib_dst = calibrated["delta_ST_mm"]
     change_pct = ((calib_dst - design_dst) / design_dst * 100.0) if abs(design_dst) > 1e-12 else np.nan
+    monitoring_word = "latest" if active_is_latest else "selected"
 
     if np.isfinite(change_pct) and change_pct > 5:
         comment1 = (
-            f"The latest monitoring-based terminal repetitive settlement is {calib_dst:.1f} mm, "
+            f"The {monitoring_word} monitoring-based terminal repetitive settlement is {calib_dst:.1f} mm, "
             f"{abs(change_pct):.1f}% larger than the design-stage estimate. The long-term repetitive "
             "settlement demand should therefore be updated using the monitoring-calibrated response."
         )
     elif np.isfinite(change_pct) and change_pct < -5:
         comment1 = (
-            f"The latest monitoring-based terminal repetitive settlement is {calib_dst:.1f} mm, "
+            f"The {monitoring_word} monitoring-based terminal repetitive settlement is {calib_dst:.1f} mm, "
             f"{abs(change_pct):.1f}% smaller than the design-stage estimate, indicating a lower long-term "
             "repetitive settlement demand than initially predicted."
         )
     else:
         comment1 = (
-            f"The latest monitoring-based terminal repetitive settlement ({calib_dst:.1f} mm) remains close "
+            f"The {monitoring_word} monitoring-based terminal repetitive settlement ({calib_dst:.1f} mm) remains close "
             f"to the design-stage estimate ({design_dst:.1f} mm), indicating limited change in the terminal prediction."
         )
 
@@ -353,10 +362,10 @@ if fit_results:
         )
 
     comment3 = (
-        f"The latest calibration uses monitoring data up to <i>i</i> = {latest['imax']:,.0f} cycles and gives "
-        f"<i>e</i><sub>T</sub> = {latest['eT']:.5f}, <i>N</i>* = {latest['Nstar']:.1f}, "
-        f"<i>m</i> = {latest['m']:.4f}, and RMSE = {latest['RMSE']:.6f}. "
-        "Graph 4 can be used to judge whether the predicted terminal repetitive settlement stabilizes as the monitoring duration increases."
+        f"The {monitoring_word} calibration uses monitoring data up to <i>i</i> = {active['imax']:,.0f} cycles and gives "
+        f"<i>e</i><sub>T</sub> = {active['eT']:.5f}, <i>N</i>* = {active['Nstar']:.1f}, "
+        f"<i>m</i> = {active['m']:.4f}, and RMSE = {active['RMSE']:.6f}. "
+        "Graph 5-2 shows whether the selected terminal prediction is stable relative to the preceding monitoring stage."
     )
 
     st.markdown(f'<div class="eng-comment"><b>1. Terminal response.</b> {comment1}</div>', unsafe_allow_html=True)
