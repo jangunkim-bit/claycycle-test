@@ -87,9 +87,7 @@
   <line x1="620" y1="232" x2="620" y2="330" class="grid"/>
   <line x1="477" y1="294" x2="785" y2="294" class="grid"/>
   <circle cx="620" cy="232" r="5.5" fill="#E11D2E"/>
-
   <text x="441" y="148" text-anchor="end" class="body"><tspan font-style="italic">e</tspan><tspan baseline-shift="sub" font-size="12">static</tspan></text>
-  <text x="441" y="237" text-anchor="end" class="body"><tspan font-style="italic">e</tspan>(<tspan font-style="italic">N</tspan><tspan baseline-shift="super" font-size="12">*</tspan>)</text>
   <text x="441" y="300" text-anchor="end" class="body"><tspan font-style="italic">e</tspan><tspan baseline-shift="sub" font-size="12">T</tspan></text>
   <text x="620" y="357" text-anchor="middle" class="body red"><tspan font-style="italic">N</tspan><tspan baseline-shift="super" font-size="13">*</tspan></text>
   <text x="780" y="284" class="body red"><tspan font-style="italic">e</tspan><tspan baseline-shift="sub" font-size="12">T</tspan> at <tspan font-style="italic">i</tspan> = ∞</text>
@@ -107,7 +105,7 @@
   <text x="1022" y="156" text-anchor="middle" class="body navy" style="font-size:28px;font-weight:700">+</text>
   <rect x="1040" y="123" width="100" height="52" rx="9" fill="#FFF8F8" stroke="#F06B73"/>
   <text x="1090" y="156" text-anchor="middle" class="body red" style="font-size:22px;font-weight:700">Δ<tspan font-style="italic">S</tspan><tspan baseline-shift="sub" font-size="13">T</tspan></text>
-  <line x1="1023" y1="181" x2="1023" y2="207" stroke="#0B2E6D" stroke-width="2.7" marker-end="url(#arrowNavy)"/>
+  <line x1="1023" y1="185" x2="1023" y2="197" stroke="#0B2E6D" stroke-width="2.0" marker-end="url(#arrowStep)"/>
   <rect x="967" y="211" width="112" height="42" rx="8" fill="#0B2E6D"/>
   <text x="1023" y="238" text-anchor="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:700;font-style:italic;fill:white">S<tspan baseline-shift="sub" font-size="12">total</tspan></text>
 
@@ -147,9 +145,11 @@
   <line x1="1506" y1="174" x2="1495" y2="211" stroke="#174EA6" stroke-width="2" marker-end="url(#arrowBlue)"/>
 
   <rect x="1261" y="309" width="290" height="67" rx="11" fill="url(#update)" stroke="#66A66E"/>
-  <g transform="translate(1280,329)" stroke="#166534" stroke-width="2.4" fill="none">
-    <path d="M22 3 A16 16 0 0 1 36 12"/><path d="M36 12 l0 -9 l-9 2"/>
-    <path d="M18 33 A16 16 0 0 1 4 24"/><path d="M4 24 l0 9 l9 -2"/>
+  <g transform="translate(1279,323)" fill="none" stroke="#166534" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 18 A16 16 0 0 1 35 8"/>
+    <polyline points="35,3 35,11 27,11"/>
+    <path d="M38 18 A16 16 0 0 1 11 28"/>
+    <polyline points="11,33 11,25 19,25"/>
   </g>
   <text x="1417" y="338" text-anchor="middle" class="body green" style="font-size:19px;font-weight:700">Update <tspan font-style="italic">e</tspan><tspan baseline-shift="sub" font-size="12">T</tspan>, <tspan font-style="italic">N</tspan><tspan baseline-shift="super" font-size="12">*</tspan>, <tspan font-style="italic">m</tspan></text>
   <text x="1417" y="362" text-anchor="middle" class="body green">Model calibration</text>
