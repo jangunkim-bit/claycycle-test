@@ -9,12 +9,12 @@ def apply_style():
         --navy:#16324F; --blue:#2E6F95; --muted:#667085; --line:#D9E2EC;
         --good:#1F7A5C; --bad:#B42318; --soft:#F8FAFC; --softblue:#EEF5F8;
       }
-      .block-container{max-width:1580px;padding-top:1.35rem;padding-bottom:4rem;}
+      .block-container{max-width:1580px;padding-top:2.25rem;padding-bottom:4rem;}
       h1,h2,h3{color:var(--navy);letter-spacing:-0.02em;}
       h2{margin-top:1.45rem!important;}
-      .hero{padding:1.15rem 1.45rem 1rem;border:1px solid var(--line);border-radius:18px;
+      .hero{padding:1.35rem 1.45rem 1.05rem;border:1px solid var(--line);border-radius:18px;
             background:linear-gradient(135deg,#F8FAFC 0%,#EEF5F8 100%);margin-bottom:.72rem;text-align:center;}
-      .hero-kicker{font-size:.76rem;line-height:1;font-weight:850;color:var(--blue);letter-spacing:.15em;margin-bottom:.42rem;}
+      .hero-kicker{font-size:.78rem;line-height:1.2;font-weight:850;color:var(--blue);letter-spacing:.15em;margin-bottom:.42rem;}
       .hero-title{font-size:clamp(1.7rem,2.65vw,2.35rem);line-height:1.12;font-weight:850;color:var(--navy);
                   margin-bottom:.32rem;letter-spacing:-0.03em;}
       .hero-subtitle{font-size:clamp(.98rem,1.35vw,1.12rem);font-weight:650;color:#526170;margin-bottom:.38rem;}
@@ -49,7 +49,10 @@ def apply_style():
       td.symbol{white-space:nowrap;color:#344054;}
       td.result{white-space:nowrap;font-weight:650;color:#101828;}
       .graph-result{margin-top:-.35rem;margin-bottom:.6rem;}
-      @media (max-width:720px){.hero{text-align:left;padding:1rem .95rem .9rem;}}
+      @media (max-width:720px){
+        .block-container{padding-top:2rem;}
+        .hero{text-align:left;padding:1.2rem .95rem .95rem;}
+      }
     </style>
     """, unsafe_allow_html=True)
 
