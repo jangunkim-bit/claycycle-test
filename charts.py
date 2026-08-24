@@ -1,6 +1,6 @@
 import numpy as np
 import plotly.graph_objects as go
-from calc_core import modified_accumulation
+from calc_core import modified_accumulation, monitoring_accumulation
 
 BLUE = "#2563EB"
 RED = "#E24A4A"
@@ -100,7 +100,6 @@ def design_void_ratio_figure(e_static, e_t, n_star, m, i_design):
 
     fig = go.Figure()
 
-    # Hoverable terminal-state line. Unlike a Plotly shape, this trace reports eT on hover.
     fig.add_trace(go.Scatter(
         x=i_grid, y=np.full_like(i_grid, e_t), mode="lines",
         name="Terminal void ratio, eT",
@@ -165,8 +164,14 @@ def calibration_figure(fit_results, e_static, e_t_design, n_design, m_design, i_
     latest = fit_results[-1]
     for r in fit_results:
         fig.add_trace(go.Scatter(
-            x=i_curve, y=modified_accumulation(i_curve, e_static, r["eT"], r["Nstar"], r["m"]),
+            x=i_curve,
+            y=monitoring_accumulation(i_curve, r["e1"], r["eT"], r["Nstar"], r["m"]),
             mode="lines", name=f'Monitoring {r["dataset"]}', line=dict(width=2.2),
+            hovertemplate=(
+                f'<b>Monitoring {r["dataset"]}</b><br>'
+                f'e<sub>1</sub> = {r["e1"]:.4f}<br>'
+                'i = %{x:,.0f}<br>e = %{y:.4f}<extra></extra>'
+            ),
         ))
         if show_all_points or r is latest:
             d = r["df"]

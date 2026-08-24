@@ -9,8 +9,16 @@ def predict_delta_eT_pysr(e_b, stress_ratio):
 
 
 def modified_accumulation(i, e_static, e_t, n_star, m):
+    """Design-stage modified accumulation model."""
     i = np.asarray(i, dtype=float)
     return e_t + (e_static - e_t) / (1.0 + np.power(np.maximum(i, 1e-12) / n_star, m))
+
+
+def monitoring_accumulation(i, e1, e_t, n_star, m):
+    """Monitoring form with the measured void ratio at i=1 fixed as e1."""
+    i = np.asarray(i, dtype=float)
+    x = np.maximum(i - 1.0, 0.0)
+    return e_t + (e1 - e_t) / (1.0 + np.power(x / n_star, m))
 
 
 def accumulation_ratio(i, n_star, m):
@@ -52,12 +60,28 @@ def read_monitoring_file(uploaded_file):
     clean = clean.sort_values("i").drop_duplicates(subset="i", keep="last")
     if len(clean) < 4:
         raise ValueError("At least four valid i-e observations are required for free fitting of eT, N*, and m.")
+    if not np.any(np.isclose(clean["i"].to_numpy(dtype=float), 1.0, rtol=0.0, atol=1e-9)):
+        raise ValueError("Monitoring data must contain the measured void ratio at i = 1 (e1).")
     return clean
 
 
-def fit_monitoring_dataset(df, e_static):
+def fit_monitoring_dataset(df, e_static=None):
+    """
+    PR #6-speed monitoring fit with the measured e1 fixed.
+
+    e1 is read directly from the row where i = 1. Only eT, N*, and m are
+    optimized using one nonlinear least-squares fit. The legacy e_static
+    argument is accepted for compatibility with the existing app call but is
+    not used as the monitoring-curve starting void ratio.
+    """
     i = df["i"].to_numpy(dtype=float)
     e = df["e"].to_numpy(dtype=float)
+
+    e1_mask = np.isclose(i, 1.0, rtol=0.0, atol=1e-9)
+    if not np.any(e1_mask):
+        raise ValueError("Monitoring data must contain i = 1 so e1 can be fixed from the measured data.")
+    e1 = float(e[np.flatnonzero(e1_mask)[0]])
+
     observed_min = float(np.min(e))
     observed_max = float(np.max(e))
     spread = max(observed_max - observed_min, 1e-4)
@@ -71,27 +95,36 @@ def fit_monitoring_dataset(df, e_static):
     upper = np.array([upper_e_t, max(float(np.max(i)) * 1e5, 1e6), 2.0], dtype=float)
     x0 = np.array([
         np.clip(observed_min - max(0.01, 0.25 * spread), lower[0] + 1e-8, upper[0] - 1e-8),
-        np.clip(float(np.median(i)), lower[1] * 10, upper[1] / 10),
+        np.clip(float(np.median(np.maximum(i - 1.0, 1e-3))), lower[1] * 10, upper[1] / 10),
         0.5,
     ])
 
     def residuals(params):
         e_t, n_star, m = params
-        return modified_accumulation(i, e_static, e_t, n_star, m) - e
+        return monitoring_accumulation(i, e1, e_t, n_star, m) - e
 
     result = least_squares(
-        residuals, x0=x0, bounds=(lower, upper), method="trf",
-        loss="linear", max_nfev=50000,
+        residuals,
+        x0=x0,
+        bounds=(lower, upper),
+        method="trf",
+        loss="linear",
+        max_nfev=50000,
     )
     if not result.success:
         raise RuntimeError(result.message)
 
     e_t, n_star, m = result.x
-    pred = modified_accumulation(i, e_static, e_t, n_star, m)
+    pred = monitoring_accumulation(i, e1, e_t, n_star, m)
     rmse = float(np.sqrt(np.mean((pred - e) ** 2)))
     return {
-        "eT": float(e_t), "Nstar": float(n_star), "m": float(m),
-        "RMSE": rmse, "imax": float(np.max(i)), "df": df,
+        "e1": e1,
+        "eT": float(e_t),
+        "Nstar": float(n_star),
+        "m": float(m),
+        "RMSE": rmse,
+        "imax": float(np.max(i)),
+        "df": df,
     }
 
 
