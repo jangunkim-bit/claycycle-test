@@ -24,13 +24,16 @@ from style import (
 
 
 st.set_page_config(page_title="Long-Term Settlement Assessment", page_icon="📈", layout="wide")
+nav_request = st.query_params.get("nav", "")
+monitoring_ready = bool(st.session_state.get("fit_results", []))
 apply_style()
-hero()
+hero(monitoring_ready=monitoring_ready)
 
 # -----------------------------------------------------------------------------
 # 01. DESIGN STAGE
 # -----------------------------------------------------------------------------
 stage_title("01", "DESIGN STAGE")
+st.markdown('<div id="design-input" class="section-anchor"></div>', unsafe_allow_html=True)
 st.header("1. Design Input Parameters")
 st.caption("Enter the ground condition, repetitive loading condition, and design criterion.")
 
@@ -107,11 +110,6 @@ with st.container(border=True):
 # -----------------------------------------------------------------------------
 # Automatic design-stage calculations
 # -----------------------------------------------------------------------------
-# e0 is the reference void ratio at sigma'_v = 1 kPa. Therefore eb and estatic
-# are calculated directly from the compression relation and do not depend on H0.
-# For converting the actual initial layer thickness H0 to Hb and Hpeak, however,
-# the in-situ initial void ratio ei is evaluated internally at the layer mid-depth
-# self-weight effective stress using gamma_sat = 19 kN/m3 and gamma_w = 9.81 kN/m3.
 sigma_ref = 1.0
 gamma_sat = 19.0
 gamma_w = 9.81
@@ -164,36 +162,43 @@ st.caption(
 # -----------------------------------------------------------------------------
 # 2. Design-stage prediction
 # -----------------------------------------------------------------------------
+st.markdown('<div id="design-response" class="section-anchor"></div>', unsafe_allow_html=True)
 st.header("2. Design-Stage Long-Term Response Prediction")
 left, right = st.columns(2, gap="large")
 with left:
     st.subheader("2-1. Static Response")
+    st.markdown('<div class="response-result">', unsafe_allow_html=True)
+    result_card(
+        'Static consolidation settlement, <i>S</i><sub>static</sub>',
+        f'{s_static_mm:,.1f} mm',
+        tone="blue",
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
     st.plotly_chart(
         static_response_figure(
             sigma_v0, delta_sigma, e0, eb, e_static, cc
         ),
         use_container_width=True,
     )
-    st.markdown('<div class="graph-result">', unsafe_allow_html=True)
-    result_card('Static consolidation settlement, <i>S</i><sub>static</sub>', f'{s_static_mm:,.1f} mm')
-    st.markdown('</div>', unsafe_allow_html=True)
 
 with right:
     st.subheader("2-2. Repetitive Response")
+    st.markdown('<div class="response-result">', unsafe_allow_html=True)
+    result_card(
+        'Terminal repetitive settlement, Δ<i>S</i><sub>T</sub> (<i>i</i> = ∞)',
+        f'{design_assessment["delta_ST_mm"]:,.1f} mm',
+        tone="red",
+    )
+    st.markdown('</div>', unsafe_allow_html=True)
     st.plotly_chart(
         design_void_ratio_figure(e_static, e_t_design, n_design, m_design, i_design),
         use_container_width=True,
     )
-    st.markdown('<div class="graph-result">', unsafe_allow_html=True)
-    result_card(
-        'Terminal repetitive settlement, Δ<i>S</i><sub>T</sub> (<i>i</i> = ∞)',
-        f'{design_assessment["delta_ST_mm"]:,.1f} mm'
-    )
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # 3. Design-stage assessment
 # -----------------------------------------------------------------------------
+st.markdown('<div id="design-assessment" class="section-anchor"></div>', unsafe_allow_html=True)
 st.header("3. Design-Stage Settlement Assessment")
 st.caption("Key design-stage results: how much, how fast, and serviceability.")
 render_assessment_table(design_assessment)
@@ -206,7 +211,10 @@ else:
 # 02. MONITORING STAGE
 # -----------------------------------------------------------------------------
 stage_title("02", "MONITORING STAGE")
+st.markdown('<div id="monitoring-input" class="section-anchor"></div>', unsafe_allow_html=True)
 st.header("4. Monitoring Data Input")
+if nav_request in {"5", "6"} and not monitoring_ready:
+    st.warning("Monitoring data are required first. Please upload at least one dataset and run Monitoring Calibration to activate Sections 5 and 6.")
 st.caption("Upload 1–10 monitoring datasets in i-e format. One dataset is sufficient to run the calibration.")
 
 uploaded = []
@@ -251,6 +259,7 @@ for msg in fit_errors:
 # -----------------------------------------------------------------------------
 if fit_results:
     fit_results = sorted(fit_results, key=lambda x: x["imax"])
+    st.markdown('<div id="monitoring-calibration" class="section-anchor"></div>', unsafe_allow_html=True)
     st.header("5. Monitoring-Based Calibration and Long-Term Prediction Updating")
     g3, g4 = st.columns(2, gap="large")
 
@@ -290,6 +299,7 @@ if fit_results:
     # -------------------------------------------------------------------------
     # 6. Monitoring-calibrated assessment
     # -------------------------------------------------------------------------
+    st.markdown('<div id="monitoring-assessment" class="section-anchor"></div>', unsafe_allow_html=True)
     st.header("6. Monitoring-Calibrated Settlement Assessment")
     latest = fit_results[-1]
     calibrated = assessment_from_parameters(
