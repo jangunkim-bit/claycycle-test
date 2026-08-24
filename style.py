@@ -66,7 +66,7 @@ def hero():
       <div class="hero-sub">Design-stage prediction, serviceability assessment, and monitoring-based calibration in one workflow.</div>
     </div>
     """, unsafe_allow_html=True)
-    st.image("assets/claycycle_framework.svg", use_container_width=True)
+    st.image("assets/claycycle_framework.png", use_container_width=True)
 
 
 def stage_title(number, text):
