@@ -70,8 +70,6 @@ def static_response_figure(sigma_v0, delta_sigma, e0, eb, e_static, cc):
         ),
     ))
 
-    # Explicit logarithmic ticks prevent Plotly auto-tick expansion and keep
-    # the baseline marker at the actual sigma'_v0 location.
     candidate_ticks = []
     max_decade = int(np.ceil(np.log10(peak_stress * 1.15)))
     for power in range(0, max_decade + 1):
@@ -209,42 +207,74 @@ def calibration_figure(fit_results, e_static, e_t_design, n_design, m_design, i_
 
 def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
     fig = go.Figure()
-    xvals = [r["imax"] for r in fit_results]
-    yvals = [r["delta_ST_mm"] for r in fit_results]
-    latest_delta_st = float(yvals[-1])
+    xvals = [float(r["imax"]) for r in fit_results]
+    yvals = [float(r["delta_ST_mm"]) for r in fit_results]
+    latest_x = xvals[-1]
+    latest_delta_st = yvals[-1]
     stability_threshold = 1.0
 
-    if len(yvals) >= 2 and abs(float(yvals[-2])) > 1e-12:
-        latest_change_pct = abs(latest_delta_st - float(yvals[-2])) / abs(float(yvals[-2])) * 100.0
+    if len(yvals) >= 2 and abs(yvals[-2]) > 1e-12:
+        latest_change_pct = abs(latest_delta_st - yvals[-2]) / abs(yvals[-2]) * 100.0
         is_stable = latest_change_pct <= stability_threshold
     else:
         latest_change_pct = None
         is_stable = False
 
-    point_labels = [f'D{r["dataset"]}' for r in fit_results]
-    point_labels[-1] = f'D{fit_results[-1]["dataset"]} (Latest)'
-    marker_sizes = [10] * len(xvals)
-    marker_sizes[-1] = 14
-    marker_colors = [BLUE] * len(xvals)
-    marker_colors[-1] = GREEN
-
+    # Blue evolution curve only. Markers and labels are drawn separately so
+    # the latest point can be highlighted without Plotly mixing text styles.
     fig.add_trace(go.Scatter(
-        x=xvals, y=yvals, mode="lines+markers+text",
-        text=point_labels, textposition="top center",
-        name="Monitoring-based prediction", line=dict(width=3, color=BLUE, shape="spline"),
-        marker=dict(size=marker_sizes, color=marker_colors, line=dict(color="white", width=2)),
-        hovertemplate="i<sub>max</sub> = %{x:,.0f}<br>ΔS<sub>T</sub> = %{y:.2f} mm<extra></extra>",
+        x=xvals, y=yvals, mode="lines",
+        name="Monitoring-based prediction",
+        line=dict(width=3, color=BLUE, shape="spline"),
+        hoverinfo="skip",
     ))
 
-    fig.add_hline(
-        y=design_delta_st_mm, line_dash="dash", line_color=RED, line_width=2,
-        annotation_text=f"Design-stage Δ<i>S</i><sub>T</sub> = {design_delta_st_mm:.1f} mm",
-        annotation_position="bottom right",
+    if len(xvals) > 1:
+        fig.add_trace(go.Scatter(
+            x=xvals[:-1], y=yvals[:-1], mode="markers+text",
+            text=[f'D{r["dataset"]}' for r in fit_results[:-1]],
+            textposition="top center",
+            showlegend=False,
+            marker=dict(size=10, color=BLUE, line=dict(color="white", width=2)),
+            hovertemplate="i<sub>max</sub> = %{x:,.0f}<br>ΔS<sub>T</sub> = %{y:.2f} mm<extra></extra>",
+        ))
+
+    fig.add_trace(go.Scatter(
+        x=[latest_x], y=[latest_delta_st], mode="markers+text",
+        text=[f'D{fit_results[-1]["dataset"]} (Latest)'],
+        textposition="bottom center",
+        showlegend=False,
+        marker=dict(size=15, color=GREEN, symbol="diamond", line=dict(color="white", width=2.2)),
+        textfont=dict(size=13, color=GREEN),
+        hovertemplate="<b>Latest monitoring prediction</b><br>i<sub>max</sub> = %{x:,.0f}<br>ΔS<sub>T</sub> = %{y:.2f} mm<extra></extra>",
+    ))
+
+    # Explicit shapes and paper-referenced annotations are used instead of
+    # add_hline() so their color and label positions remain fixed in Streamlit.
+    fig.add_shape(
+        type="line", xref="paper", x0=0, x1=1, yref="y",
+        y0=design_delta_st_mm, y1=design_delta_st_mm,
+        line=dict(color=RED, width=2, dash="dash"), layer="below",
     )
-    fig.add_hline(
-        y=latest_delta_st, line_dash="dot", line_color=GREEN, line_width=2.3,
-        annotation_text=f"Monitoring-updated Δ<i>S</i><sub>T</sub> = {latest_delta_st:.1f} mm",
-        annotation_position="bottom right",
+    fig.add_shape(
+        type="line", xref="paper", x0=0, x1=1, yref="y",
+        y0=latest_delta_st, y1=latest_delta_st,
+        line=dict(color=GREEN, width=2.4, dash="dot"), layer="below",
+    )
+
+    fig.add_annotation(
+        x=0.985, y=design_delta_st_mm, xref="paper", yref="y",
+        text=f"Design-stage Δ<i>S</i><sub>T</sub> = {design_delta_st_mm:.1f} mm",
+        showarrow=False, xanchor="right", yanchor="top", yshift=-6,
+        bgcolor="rgba(255,255,255,0.86)",
+        font=dict(size=12, color=RED),
+    )
+    fig.add_annotation(
+        x=0.985, y=latest_delta_st, xref="paper", yref="y",
+        text=f"Monitoring-updated Δ<i>S</i><sub>T</sub> = {latest_delta_st:.1f} mm",
+        showarrow=False, xanchor="right", yanchor="bottom", yshift=8,
+        bgcolor="rgba(255,255,255,0.90)",
+        font=dict(size=12, color=GREEN),
     )
 
     if is_stable:
@@ -264,13 +294,11 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
         status_color = RED
         status_bg = "rgba(226,74,74,0.10)"
 
-    # Keep the status box in the upper-right empty portion of the chart so it
-    # does not overlap the early monitoring points or their labels.
     fig.add_annotation(
-        x=0.97, y=0.97, xref="paper", yref="paper",
+        x=0.98, y=0.97, xref="paper", yref="paper",
         text=status_text, showarrow=False,
         xanchor="right", yanchor="top", align="left",
-        bgcolor=status_bg, bordercolor=status_color, borderwidth=1.5, borderpad=8,
+        bgcolor=status_bg, bordercolor=status_color, borderwidth=1.6, borderpad=9,
         font=dict(size=15, color=status_color),
     )
 
@@ -284,14 +312,23 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
     max_decade = int(np.ceil(np.log10(xmax)))
     tickvals = [10 ** p for p in range(min_decade, max_decade + 1)]
 
+    all_y = yvals + [float(design_delta_st_mm), latest_delta_st]
+    y_min = min(all_y)
+    y_max = max(all_y)
+    y_span = max(y_max - y_min, 1.0)
+
     fig.update_xaxes(
         type="log", tickmode="array", tickvals=tickvals,
         ticktext=[f"10<sup>{p}</sup>" if p != 0 else "1" for p in range(min_decade, max_decade + 1)],
         title="Maximum monitored cycle, <i>i</i><sub>max</sub>",
     )
-    fig.update_yaxes(title="Predicted terminal repetitive settlement, Δ<i>S</i><sub>T</sub> (mm)", nticks=7)
+    fig.update_yaxes(
+        title="Predicted terminal repetitive settlement, Δ<i>S</i><sub>T</sub> (mm)",
+        nticks=7,
+        range=[y_min - 0.08 * y_span, y_max + 0.15 * y_span],
+    )
     fig.update_layout(
-        height=500, margin=dict(l=70, r=30, t=25, b=80),
-        legend=dict(orientation="h", y=-0.3, x=0),
+        height=520, margin=dict(l=70, r=35, t=35, b=80),
+        showlegend=False,
     )
     return _style_axes(fig)
