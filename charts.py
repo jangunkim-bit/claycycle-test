@@ -4,6 +4,7 @@ from calc_core import modified_accumulation, monitoring_accumulation
 
 BLUE = "#2563EB"
 RED = "#E24A4A"
+GREEN = "#1F7A5C"
 NAVY = "#16324F"
 GRID = "#E7EDF3"
 AXIS = "#344054"
@@ -210,6 +211,16 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
     fig = go.Figure()
     xvals = [r["imax"] for r in fit_results]
     yvals = [r["delta_ST_mm"] for r in fit_results]
+    latest_delta_st = float(yvals[-1])
+    stability_threshold = 1.0
+
+    if len(yvals) >= 2 and abs(float(yvals[-2])) > 1e-12:
+        latest_change_pct = abs(latest_delta_st - float(yvals[-2])) / abs(float(yvals[-2])) * 100.0
+        is_stable = latest_change_pct <= stability_threshold
+    else:
+        latest_change_pct = None
+        is_stable = False
+
     fig.add_trace(go.Scatter(
         x=xvals, y=yvals, mode="lines+markers+text",
         text=[f'D{r["dataset"]}' for r in fit_results], textposition="top center",
@@ -218,7 +229,36 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
     ))
     fig.add_hline(
         y=design_delta_st_mm, line_dash="dash", line_color=RED, line_width=2,
-        annotation_text="Design-stage Δ<i>S</i><sub>T</sub>", annotation_position="top right",
+        annotation_text="Design-stage Δ<i>S</i><sub>T</sub>", annotation_position="bottom right",
+    )
+    fig.add_hline(
+        y=latest_delta_st, line_dash="dot", line_color=BLUE, line_width=2,
+        annotation_text="Monitoring-updated Δ<i>S</i><sub>T</sub>", annotation_position="top right",
+    )
+
+    if is_stable:
+        status_text = (
+            f"<b>STABLE</b><br>Latest change = {latest_change_pct:.2f}% ≤ {stability_threshold:.1f}%"
+        )
+        status_color = GREEN
+        status_bg = "rgba(31,122,92,0.10)"
+    else:
+        if latest_change_pct is None:
+            detail = "At least two monitoring results are required."
+        else:
+            detail = f"Latest change = {latest_change_pct:.2f}% > {stability_threshold:.1f}%"
+        status_text = (
+            f"<b>INSUFFICIENT</b><br>{detail}<br>Additional monitoring data are required."
+        )
+        status_color = RED
+        status_bg = "rgba(226,74,74,0.10)"
+
+    fig.add_annotation(
+        x=0.03, y=0.97, xref="paper", yref="paper",
+        text=status_text, showarrow=False,
+        xanchor="left", yanchor="top", align="left",
+        bgcolor=status_bg, bordercolor=status_color, borderwidth=1.5, borderpad=8,
+        font=dict(size=15, color=status_color),
     )
 
     if len(xvals) == 1:
