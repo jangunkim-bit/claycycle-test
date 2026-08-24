@@ -95,7 +95,7 @@ def apply_style():
 def hero():
     st.markdown("""
     <div class="hero">
-      <div class="hero-kicker">CLAYCYCLE</div>
+      <div class="hero-kicker">CLAY CYCLE</div>
       <div class="hero-title">Long-Term Settlement Assessment</div>
       <div class="hero-subtitle">Normally Consolidated Clays under Repetitive Loading</div>
       <div class="hero-sub">Design-stage prediction, serviceability assessment, and monitoring-based calibration in one workflow.</div>
