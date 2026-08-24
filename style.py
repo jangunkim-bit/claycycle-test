@@ -33,9 +33,13 @@ def apply_style():
       .design .overview-stage-title{color:#0B2E6D;}.monitor .overview-stage-title{color:#0B5A2B;}
       .overview-stage-sub{font-size:.9rem;color:#344054;margin-left:.25rem;}
       .overview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.72rem;}
+      .overview-link{display:block;text-decoration:none!important;color:inherit!important;}
       .overview-card{min-height:116px;background:#FFFFFF;border:1px solid #D7E1EC;border-radius:13px;
                      padding:.8rem .86rem;display:grid;grid-template-columns:54px 1fr 18px;gap:.65rem;align-items:center;
-                     box-shadow:0 2px 7px rgba(16,24,40,.035);}
+                     box-shadow:0 2px 7px rgba(16,24,40,.035);height:100%;transition:transform .12s ease,box-shadow .12s ease,border-color .12s ease;}
+      .overview-link:hover .overview-card{transform:translateY(-2px);box-shadow:0 7px 16px rgba(16,24,40,.08);}
+      .design .overview-link:hover .overview-card{border-color:#9BBCE8;}
+      .monitor .overview-link:hover .overview-card{border-color:#9BC5A5;}
       .monitor .overview-card{border-color:#D5E4D8;}
       .overview-icon{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;
                      font-size:1.55rem;font-weight:650;line-height:1;}
@@ -51,10 +55,22 @@ def apply_style():
                    color:var(--navy);font-size:1.16rem;font-weight:850;letter-spacing:.035em;}
       .input-label{min-height:2.25rem;display:flex;align-items:flex-end;color:#344054;
                    font-size:.91rem;font-weight:500;line-height:1.28;margin:.12rem 0 .28rem;}
+
+      div[data-testid="stNumberInput"] div[data-baseweb="input"],
+      div[data-testid="stTextInput"] div[data-baseweb="input"]{background:#FFF7D6!important;border-color:#E7D58A!important;}
+      div[data-testid="stNumberInput"] input,
+      div[data-testid="stTextInput"] input{background:transparent!important;}
+      div[data-testid="stTextInput"] div[data-baseweb="input"]:has(input:disabled){background:#F0F2F6!important;border-color:#E1E5EB!important;}
+
       .result-card{border:1px solid var(--line);border-radius:12px;background:#FFFFFF;padding:.72rem .9rem;
                    min-height:78px;display:flex;flex-direction:column;justify-content:center;box-shadow:0 1px 2px rgba(16,24,40,.025);}
       .result-label{font-size:.84rem;color:var(--muted);margin-bottom:.18rem;}
       .result-value{font-size:1.22rem;color:var(--navy);font-weight:780;letter-spacing:-0.01em;}
+      .result-card.result-blue{border-color:#BFD6FA;background:#F8FBFF;}
+      .result-card.result-blue .result-label,.result-card.result-blue .result-value{color:#2563EB;}
+      .result-card.result-red{border-color:#F7C2C0;background:#FFF9F8;}
+      .result-card.result-red .result-label,.result-card.result-red .result-value{color:#E54848;}
+      .response-result{margin:.1rem 0 .55rem;}
       .status-good{background:#ECFDF3;color:var(--good);border:1px solid #ABEFC6;border-radius:12px;
                    padding:.8rem 1rem;font-weight:700;}
       .status-bad{background:#FEF3F2;color:var(--bad);border:1px solid #FECDCA;border-radius:12px;
@@ -75,6 +91,7 @@ def apply_style():
       td.symbol{white-space:nowrap;color:#344054;}
       td.result{white-space:nowrap;font-weight:650;color:#101828;}
       .graph-result{margin-top:-.35rem;margin-bottom:.6rem;}
+      .section-anchor{position:relative;top:-1rem;visibility:hidden;}
       @media (max-width:920px){
         .overview-grid{grid-template-columns:1fr;}
         .overview-card{min-height:96px;}
@@ -92,7 +109,9 @@ def apply_style():
     """, unsafe_allow_html=True)
 
 
-def hero():
+def hero(monitoring_ready=False):
+    calibration_href = "#monitoring-calibration" if monitoring_ready else "?nav=5#monitoring-input"
+    assessment_href = "#monitoring-assessment" if monitoring_ready else "?nav=6#monitoring-input"
     st.markdown("""
     <div class="hero">
       <div class="hero-kicker">CLAY CYCLE</div>
@@ -102,7 +121,7 @@ def hero():
     </div>
     """, unsafe_allow_html=True)
     st.image("assets/claycycle_overview.svg", use_container_width=True)
-    st.markdown("""
+    st.markdown(f"""
     <div class="overview-stage design">
       <div class="overview-head">
         <div class="overview-badge">I</div>
@@ -110,21 +129,21 @@ def hero():
         <div class="overview-stage-sub">Predict long-term settlement before construction</div>
       </div>
       <div class="overview-grid">
-        <div class="overview-card">
+        <a class="overview-link" href="#design-input"><div class="overview-card">
           <div class="overview-icon">▤</div>
           <div><div class="overview-card-title">1. Design Input Parameters</div><div class="overview-card-text">Soil and loading conditions for design-stage prediction.</div></div>
           <div class="overview-chevron">›</div>
-        </div>
-        <div class="overview-card">
+        </div></a>
+        <a class="overview-link" href="#design-response"><div class="overview-card">
           <div class="overview-icon">↗</div>
           <div><div class="overview-card-title">2. Design-Stage Long-Term Response Prediction</div><div class="overview-card-text">Predict <i>e</i><sub>T</sub>, <i>N</i>*, <i>m</i> and <i>e</i>–<i>i</i> (or settlement) behavior under repetitive loading.</div></div>
           <div class="overview-chevron">›</div>
-        </div>
-        <div class="overview-card">
+        </div></a>
+        <a class="overview-link" href="#design-assessment"><div class="overview-card">
           <div class="overview-icon">✓</div>
           <div><div class="overview-card-title">3. Design-Stage Settlement Assessment</div><div class="overview-card-text">Evaluate static settlement, additional settlement and serviceability.</div></div>
           <div class="overview-chevron">›</div>
-        </div>
+        </div></a>
       </div>
     </div>
     <div class="overview-stage monitor">
@@ -134,21 +153,21 @@ def hero():
         <div class="overview-stage-sub">Update prediction using monitoring data</div>
       </div>
       <div class="overview-grid">
-        <div class="overview-card">
+        <a class="overview-link" href="#monitoring-input"><div class="overview-card">
           <div class="overview-icon">⇧</div>
           <div><div class="overview-card-title">4. Monitoring Data Input</div><div class="overview-card-text">Input monitored <i>i</i>–<i>e</i> data during construction or operation.</div></div>
           <div class="overview-chevron">›</div>
-        </div>
-        <div class="overview-card">
+        </div></a>
+        <a class="overview-link" href="{calibration_href}"><div class="overview-card">
           <div class="overview-icon">⚙</div>
           <div><div class="overview-card-title">5. Monitoring-Based Calibration of Model Parameters</div><div class="overview-card-text">Calibrate <i>e</i><sub>T</sub>, <i>N</i>*, <i>m</i> using monitoring data (Model Calibration).</div></div>
           <div class="overview-chevron">›</div>
-        </div>
-        <div class="overview-card">
+        </div></a>
+        <a class="overview-link" href="{assessment_href}"><div class="overview-card">
           <div class="overview-icon">✓</div>
           <div><div class="overview-card-title">6. Monitoring-Calibrated Settlement Assessment</div><div class="overview-card-text">Re-evaluate settlement and serviceability with updated parameters.</div></div>
           <div class="overview-chevron">›</div>
-        </div>
+        </div></a>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -163,9 +182,10 @@ def input_label(html):
     st.markdown(f'<div class="input-label">{html}</div>', unsafe_allow_html=True)
 
 
-def result_card(label_html, value_text):
+def result_card(label_html, value_text, tone=None):
+    tone_class = f" result-{tone}" if tone in {"blue", "red"} else ""
     st.markdown(
-        f'<div class="result-card"><div class="result-label">{label_html}</div>'
+        f'<div class="result-card{tone_class}"><div class="result-label">{label_html}</div>'
         f'<div class="result-value">{value_text}</div></div>',
         unsafe_allow_html=True,
     )
