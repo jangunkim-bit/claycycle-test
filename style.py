@@ -110,8 +110,6 @@ def apply_style():
 
 
 def hero(monitoring_ready=False):
-    calibration_href = "#monitoring-calibration" if monitoring_ready else "?nav=5#monitoring-input"
-    assessment_href = "#monitoring-assessment" if monitoring_ready else "?nav=6#monitoring-input"
     st.markdown("""
     <div class="hero">
       <div class="hero-kicker">CLAY CYCLE</div>
@@ -121,7 +119,7 @@ def hero(monitoring_ready=False):
     </div>
     """, unsafe_allow_html=True)
     st.image("assets/claycycle_overview.svg", use_container_width=True)
-    st.markdown(f"""
+    st.markdown("""
     <div class="overview-stage design">
       <div class="overview-head">
         <div class="overview-badge">I</div>
@@ -158,12 +156,12 @@ def hero(monitoring_ready=False):
           <div><div class="overview-card-title">4. Monitoring Data Input</div><div class="overview-card-text">Input monitored <i>i</i>–<i>e</i> data during construction or operation.</div></div>
           <div class="overview-chevron">›</div>
         </div></a>
-        <a class="overview-link" href="{calibration_href}"><div class="overview-card">
+        <a class="overview-link" href="#monitoring-calibration"><div class="overview-card">
           <div class="overview-icon">⚙</div>
           <div><div class="overview-card-title">5. Monitoring-Based Calibration of Model Parameters</div><div class="overview-card-text">Calibrate <i>e</i><sub>T</sub>, <i>N</i>*, <i>m</i> using monitoring data (Model Calibration).</div></div>
           <div class="overview-chevron">›</div>
         </div></a>
-        <a class="overview-link" href="{assessment_href}"><div class="overview-card">
+        <a class="overview-link" href="#monitoring-assessment"><div class="overview-card">
           <div class="overview-icon">✓</div>
           <div><div class="overview-card-title">6. Monitoring-Calibrated Settlement Assessment</div><div class="overview-card-text">Re-evaluate settlement and serviceability with updated parameters.</div></div>
           <div class="overview-chevron">›</div>
