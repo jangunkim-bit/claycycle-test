@@ -45,7 +45,7 @@ with st.container(border=True):
             label_visibility="collapsed", key="h0"
         )
 
-        input_label('Initial void ratio, <i>e</i><sub>0</sub>')
+        input_label('Initial void ratio at <i>σ</i>′<sub>v</sub> = 1 kPa, <i>e</i><sub>0</sub>')
         e0 = st.number_input(
             "e0 hidden", min_value=0.05, value=1.6214, step=0.01, format="%.4f",
             label_visibility="collapsed", key="e0"
@@ -107,18 +107,13 @@ with st.container(border=True):
 # -----------------------------------------------------------------------------
 # Automatic design-stage calculations
 # -----------------------------------------------------------------------------
-# The manuscript working example defines e0 at the initial effective stress at H0/2.
-# To reproduce the working-example values without making eb a user input, the current
-# web prototype uses the working-example self-weight condition: gamma_sat = 19 kN/m3
-# and groundwater at the ground surface (gamma_w = 9.81 kN/m3).
-gamma_sat = 19.0
-gamma_w = 9.81
-gamma_sub = gamma_sat - gamma_w
-sigma_initial = max(gamma_sub * (h0 / 2.0), 0.1)
-
+# e0 is defined at sigma'_v = 1 kPa. Therefore eb and estatic depend on the
+# compression relation and stress states, not on the clay-layer thickness H0.
+sigma_ref = 1.0
 stress_ratio = delta_sigma / sigma_v0
-eb = e0 - cc * np.log10(sigma_v0 / sigma_initial)
-e_static = e0 - cc * np.log10((sigma_v0 + delta_sigma) / sigma_initial)
+eb = e0 - cc * np.log10(sigma_v0 / sigma_ref)
+e_static = e0 - cc * np.log10((sigma_v0 + delta_sigma) / sigma_ref)
+
 h_b = h0 * (1.0 + eb) / (1.0 + e0)
 h_peak = h0 * (1.0 + e_static) / (1.0 + e0)
 s_static_mm = (h0 - h_peak) * 1000.0
@@ -135,27 +130,25 @@ design_assessment = assessment_from_parameters(
 
 st.markdown("#### Automatically calculated design-state parameters")
 r1, r2, r3, r4 = st.columns(4, gap="small")
-r5, r6, r7, r8 = st.columns(4, gap="small")
+r5, r6, r7 = st.columns(3, gap="small")
 with r1:
-    result_card('Initial mid-depth effective stress, <i>σ</i>′<sub>vi</sub>', f"{sigma_initial:.2f} kPa")
-with r2:
     result_card('Baseline void ratio, <i>e</i><sub>b</sub>', f"{eb:.4f}")
-with r3:
+with r2:
     result_card('Static void ratio, <i>e</i><sub>static</sub>', f"{e_static:.4f}")
-with r4:
+with r3:
     result_card('Stress amplitude ratio, Δ<i>σ</i> / <i>σ</i>′<sub>v0</sub>', f"{stress_ratio:.3f}")
-with r5:
+with r4:
     result_card('PySR prediction, Δ<i>e</i><sub>T</sub>', f"{delta_eT_design:.4f}")
-with r6:
+with r5:
     result_card('Baseline layer thickness, <i>H</i><sub>b</sub>', f"{h_b:.4f} m")
-with r7:
+with r6:
     result_card('Characteristic cycle number, <i>N</i>*', f"{n_design:,.0f}")
-with r8:
+with r7:
     result_card('Curvature parameter, <i>m</i>', f"{m_design:.2f}")
 
 st.caption(
-    "Static-state calculation in this prototype follows the manuscript working-example self-weight condition "
-    "(γsat = 19 kN/m³, groundwater at ground surface), so σ′vi = (γsat − γw)H0/2."
+    "The initial void ratio e₀ is defined at σ′v = 1 kPa. Accordingly, eᵦ and e_static are independent of H₀; "
+    "H₀ affects layer thickness and settlement magnitudes only."
 )
 
 # -----------------------------------------------------------------------------
@@ -167,7 +160,7 @@ with left:
     st.subheader("2-1. Static Response")
     st.plotly_chart(
         static_response_figure(
-            sigma_initial, sigma_v0, delta_sigma, e0, eb, e_static, cc
+            sigma_v0, delta_sigma, e0, eb, e_static, cc
         ),
         use_container_width=True,
     )
@@ -354,7 +347,7 @@ else:
 
 st.divider()
 st.caption(
-    "Baseline void ratio is calculated from the static compression relation at the initial mid-depth effective stress. "
-    "Terminal void ratio change is predicted using PySR Equation ID 3. Monitoring calibration performs nonlinear "
-    "least-squares free fitting of eT, N*, and m."
+    "The initial void ratio e0 is defined at σ′v = 1 kPa. Baseline and static void ratios are calculated from the "
+    "compression relation and are independent of H0. Terminal void ratio change is predicted using PySR Equation ID 3. "
+    "Monitoring calibration uses each dataset's measured e1 at i = 1 and freely fits eT, N*, and m."
 )
