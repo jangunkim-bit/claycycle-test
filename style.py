@@ -19,8 +19,33 @@ def apply_style():
                   margin-bottom:.32rem;letter-spacing:-0.03em;}
       .hero-subtitle{font-size:clamp(.98rem,1.35vw,1.12rem);font-weight:650;color:#526170;margin-bottom:.38rem;}
       .hero-sub{color:var(--muted);font-size:.92rem;}
-      div[data-testid="stImage"]{margin:.08rem 0 .78rem;}
+      div[data-testid="stImage"]{margin:.08rem 0 .7rem;}
       div[data-testid="stImage"] img{border-radius:18px;box-shadow:0 6px 20px rgba(16,24,40,.055);}
+
+      .overview-stage{border-radius:16px;padding:.72rem .78rem .82rem;margin:.55rem 0 .7rem;}
+      .overview-stage.design{background:linear-gradient(90deg,#F6FAFF 0%,#EDF5FF 100%);border:1px solid #D8E7FA;}
+      .overview-stage.monitor{background:linear-gradient(90deg,#F5FBF6 0%,#EDF7EF 100%);border:1px solid #D6E8DA;}
+      .overview-head{display:flex;align-items:center;gap:.72rem;margin:0 .25rem .62rem;}
+      .overview-badge{width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+                      color:white;font-size:1.08rem;font-weight:850;box-shadow:0 2px 6px rgba(16,24,40,.09);}
+      .design .overview-badge{background:#0B2E6D;}.monitor .overview-badge{background:#0B5A2B;}
+      .overview-stage-title{font-size:1.12rem;font-weight:850;letter-spacing:.015em;}
+      .design .overview-stage-title{color:#0B2E6D;}.monitor .overview-stage-title{color:#0B5A2B;}
+      .overview-stage-sub{font-size:.9rem;color:#344054;margin-left:.25rem;}
+      .overview-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.72rem;}
+      .overview-card{min-height:116px;background:#FFFFFF;border:1px solid #D7E1EC;border-radius:13px;
+                     padding:.8rem .86rem;display:grid;grid-template-columns:54px 1fr 18px;gap:.65rem;align-items:center;
+                     box-shadow:0 2px 7px rgba(16,24,40,.035);}
+      .monitor .overview-card{border-color:#D5E4D8;}
+      .overview-icon{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+                     font-size:1.55rem;font-weight:650;line-height:1;}
+      .design .overview-icon{background:#EEF5FF;color:#0B2E6D;}.monitor .overview-icon{background:#ECF7EE;color:#0B5A2B;}
+      .overview-card-title{font-size:.94rem;line-height:1.25;font-weight:800;margin-bottom:.28rem;}
+      .design .overview-card-title{color:#0B2E6D;}.monitor .overview-card-title{color:#0B5A2B;}
+      .overview-card-text{font-size:.79rem;line-height:1.4;color:#344054;}
+      .overview-chevron{font-size:1.55rem;font-weight:500;line-height:1;}
+      .design .overview-chevron{color:#0B2E6D;}.monitor .overview-chevron{color:#0B5A2B;}
+
       .stage-title{display:block;width:100%;padding:.58rem .8rem;margin:1.15rem 0 .35rem;
                    border-left:5px solid var(--blue);background:#F3F7FA;border-radius:8px;
                    color:var(--navy);font-size:1.16rem;font-weight:850;letter-spacing:.035em;}
@@ -50,10 +75,18 @@ def apply_style():
       td.symbol{white-space:nowrap;color:#344054;}
       td.result{white-space:nowrap;font-weight:650;color:#101828;}
       .graph-result{margin-top:-.35rem;margin-bottom:.6rem;}
+      @media (max-width:920px){
+        .overview-grid{grid-template-columns:1fr;}
+        .overview-card{min-height:96px;}
+        .overview-stage-sub{display:none;}
+      }
       @media (max-width:720px){
         .block-container{padding-top:2rem;}
         .hero{text-align:left;padding:1.2rem .95rem .95rem;}
         div[data-testid="stImage"] img{border-radius:12px;}
+        .overview-head{gap:.55rem;}.overview-stage{padding:.65rem;}
+        .overview-card{grid-template-columns:46px 1fr 14px;padding:.72rem;}
+        .overview-icon{width:44px;height:44px;font-size:1.35rem;}
       }
     </style>
     """, unsafe_allow_html=True)
@@ -69,6 +102,56 @@ def hero():
     </div>
     """, unsafe_allow_html=True)
     st.image("assets/claycycle_overview.svg", use_container_width=True)
+    st.markdown("""
+    <div class="overview-stage design">
+      <div class="overview-head">
+        <div class="overview-badge">I</div>
+        <div class="overview-stage-title">DESIGN STAGE</div>
+        <div class="overview-stage-sub">Predict long-term settlement before construction</div>
+      </div>
+      <div class="overview-grid">
+        <div class="overview-card">
+          <div class="overview-icon">▤</div>
+          <div><div class="overview-card-title">1. Design Input Parameters</div><div class="overview-card-text">Soil and loading conditions for design-stage prediction.</div></div>
+          <div class="overview-chevron">›</div>
+        </div>
+        <div class="overview-card">
+          <div class="overview-icon">↗</div>
+          <div><div class="overview-card-title">2. Design-Stage Long-Term Response Prediction</div><div class="overview-card-text">Predict <i>e</i><sub>T</sub>, <i>N</i>*, <i>m</i> and <i>e</i>–<i>i</i> (or settlement) behavior under repetitive loading.</div></div>
+          <div class="overview-chevron">›</div>
+        </div>
+        <div class="overview-card">
+          <div class="overview-icon">✓</div>
+          <div><div class="overview-card-title">3. Design-Stage Settlement Assessment</div><div class="overview-card-text">Evaluate static settlement, additional settlement and serviceability.</div></div>
+          <div class="overview-chevron">›</div>
+        </div>
+      </div>
+    </div>
+    <div class="overview-stage monitor">
+      <div class="overview-head">
+        <div class="overview-badge">II</div>
+        <div class="overview-stage-title">MONITORING STAGE</div>
+        <div class="overview-stage-sub">Update prediction using monitoring data</div>
+      </div>
+      <div class="overview-grid">
+        <div class="overview-card">
+          <div class="overview-icon">⇧</div>
+          <div><div class="overview-card-title">4. Monitoring Data Input</div><div class="overview-card-text">Input monitored <i>i</i>–<i>e</i> data during construction or operation.</div></div>
+          <div class="overview-chevron">›</div>
+        </div>
+        <div class="overview-card">
+          <div class="overview-icon">⚙</div>
+          <div><div class="overview-card-title">5. Monitoring-Based Calibration of Model Parameters</div><div class="overview-card-text">Calibrate <i>e</i><sub>T</sub>, <i>N</i>*, <i>m</i> using monitoring data (Model Calibration).</div></div>
+          <div class="overview-chevron">›</div>
+        </div>
+        <div class="overview-card">
+          <div class="overview-icon">✓</div>
+          <div><div class="overview-card-title">6. Monitoring-Calibrated Settlement Assessment</div><div class="overview-card-text">Re-evaluate settlement and serviceability with updated parameters.</div></div>
+          <div class="overview-chevron">›</div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def stage_title(number, text):
