@@ -248,6 +248,7 @@ if run_calibration:
             errors.append(f"Monitoring Data {idx}: {exc}")
     st.session_state["fit_results"] = fit_results
     st.session_state["fit_errors"] = errors
+    st.session_state.pop("selected_monitoring_dataset", None)
 
 fit_results = st.session_state.get("fit_results", [])
 fit_errors = st.session_state.get("fit_errors", [])
@@ -259,6 +260,12 @@ for msg in fit_errors:
 # -----------------------------------------------------------------------------
 if fit_results:
     fit_results = sorted(fit_results, key=lambda x: x["imax"])
+    dataset_ids = [int(r["dataset"]) for r in fit_results]
+    selected_dataset = st.session_state.get("selected_monitoring_dataset")
+    if selected_dataset not in dataset_ids:
+        selected_dataset = dataset_ids[-1]
+        st.session_state["selected_monitoring_dataset"] = selected_dataset
+
     st.markdown('<div id="monitoring-calibration" class="section-anchor"></div>', unsafe_allow_html=True)
     st.header("5. Monitoring-Based Calibration and Long-Term Prediction Updating")
     g3, g4 = st.columns(2, gap="large")
@@ -274,16 +281,53 @@ if fit_results:
 
     with g4:
         st.subheader("5-2. Terminal Settlement Updating")
-        st.plotly_chart(
-            terminal_settlement_evolution_figure(fit_results, design_assessment["delta_ST_mm"]),
+        st.caption("Click any D-point to use that monitoring stage as the active update. The longest dataset is selected by default.")
+        selection_event = st.plotly_chart(
+            terminal_settlement_evolution_figure(
+                fit_results,
+                design_assessment["delta_ST_mm"],
+                selected_dataset=selected_dataset,
+            ),
             use_container_width=True,
+            key="terminal_settlement_updating_chart",
+            on_select="rerun",
+            selection_mode="points",
         )
 
+        clicked_dataset = None
+        try:
+            selected_points = selection_event.selection.points
+        except AttributeError:
+            selected_points = selection_event.get("selection", {}).get("points", []) if selection_event else []
+
+        if selected_points:
+            customdata = selected_points[0].get("customdata")
+            if isinstance(customdata, (list, tuple)):
+                customdata = customdata[0] if customdata else None
+            try:
+                clicked_dataset = int(customdata)
+            except (TypeError, ValueError):
+                clicked_dataset = None
+
+        if clicked_dataset in dataset_ids and clicked_dataset != selected_dataset:
+            st.session_state["selected_monitoring_dataset"] = clicked_dataset
+            st.rerun()
+
+    selected_dataset = st.session_state.get("selected_monitoring_dataset", dataset_ids[-1])
+    selected = next(r for r in fit_results if int(r["dataset"]) == int(selected_dataset))
+    selected_is_latest = int(selected_dataset) == dataset_ids[-1]
+    selected_label = "Latest" if selected_is_latest else "Selected"
+
     st.markdown("#### 5-3. Monitoring Calibration Results")
+    st.caption(
+        f"Active monitoring stage: Data {selected_dataset} ({selected_label}), "
+        f"i_max = {selected['imax']:,.0f} cycles."
+    )
     rows = []
     for r in fit_results:
+        active_tag = " <b>(Active)</b>" if int(r["dataset"]) == int(selected_dataset) else ""
         rows.append(
-            f'<tr><td>Data {r["dataset"]}</td><td>{r["imax"]:,.0f}</td>'
+            f'<tr><td>Data {r["dataset"]}{active_tag}</td><td>{r["imax"]:,.0f}</td>'
             f'<td>{r["eT"]:.5f}</td><td>{r["Nstar"]:,.1f}</td><td>{r["m"]:.4f}</td>'
             f'<td>{r["RMSE"]:.6f}</td><td>{r["delta_ST_mm"]:.1f}</td></tr>'
         )
@@ -296,14 +340,14 @@ if fit_results:
     )
     st.markdown(calibration_html, unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # 6. Monitoring-calibrated assessment
-    # -------------------------------------------------------------------------
     st.markdown('<div id="monitoring-assessment" class="section-anchor"></div>', unsafe_allow_html=True)
     st.header("6. Monitoring-Calibrated Settlement Assessment")
-    latest = fit_results[-1]
+    st.caption(
+        f"Assessment using Data {selected_dataset} ({selected_label}) calibrated parameters "
+        f"up to i = {selected['imax']:,.0f} cycles."
+    )
     calibrated = assessment_from_parameters(
-        h_b, eb, e_static, latest["eT"], latest["Nstar"], latest["m"],
+        h_b, eb, e_static, selected["eT"], selected["Nstar"], selected["m"],
         s_static_mm, i_design, f_mhz, s_allow_mm,
     )
     render_assessment_table(design_assessment, calibrated)
@@ -313,29 +357,27 @@ if fit_results:
     else:
         st.markdown('<div class="status-bad">✕ Monitoring-calibrated design-life serviceability criterion is not satisfied.</div>', unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # Engineering comments
-    # -------------------------------------------------------------------------
     st.header("Engineering Comments")
     design_dst = design_assessment["delta_ST_mm"]
     calib_dst = calibrated["delta_ST_mm"]
     change_pct = ((calib_dst - design_dst) / design_dst * 100.0) if abs(design_dst) > 1e-12 else np.nan
+    stage_wording = "latest" if selected_is_latest else f"selected Data {selected_dataset}"
 
     if np.isfinite(change_pct) and change_pct > 5:
         comment1 = (
-            f"The latest monitoring-based terminal repetitive settlement is {calib_dst:.1f} mm, "
+            f"The {stage_wording} monitoring-based terminal repetitive settlement is {calib_dst:.1f} mm, "
             f"{abs(change_pct):.1f}% larger than the design-stage estimate. The long-term repetitive "
             "settlement demand should therefore be updated using the monitoring-calibrated response."
         )
     elif np.isfinite(change_pct) and change_pct < -5:
         comment1 = (
-            f"The latest monitoring-based terminal repetitive settlement is {calib_dst:.1f} mm, "
+            f"The {stage_wording} monitoring-based terminal repetitive settlement is {calib_dst:.1f} mm, "
             f"{abs(change_pct):.1f}% smaller than the design-stage estimate, indicating a lower long-term "
             "repetitive settlement demand than initially predicted."
         )
     else:
         comment1 = (
-            f"The latest monitoring-based terminal repetitive settlement ({calib_dst:.1f} mm) remains close "
+            f"The {stage_wording} monitoring-based terminal repetitive settlement ({calib_dst:.1f} mm) remains close "
             f"to the design-stage estimate ({design_dst:.1f} mm), indicating limited change in the terminal prediction."
         )
 
@@ -353,10 +395,10 @@ if fit_results:
         )
 
     comment3 = (
-        f"The latest calibration uses monitoring data up to <i>i</i> = {latest['imax']:,.0f} cycles and gives "
-        f"<i>e</i><sub>T</sub> = {latest['eT']:.5f}, <i>N</i>* = {latest['Nstar']:.1f}, "
-        f"<i>m</i> = {latest['m']:.4f}, and RMSE = {latest['RMSE']:.6f}. "
-        "Graph 4 can be used to judge whether the predicted terminal repetitive settlement stabilizes as the monitoring duration increases."
+        f"The active calibration uses monitoring Data {selected_dataset} up to <i>i</i> = {selected['imax']:,.0f} cycles and gives "
+        f"<i>e</i><sub>T</sub> = {selected['eT']:.5f}, <i>N</i>* = {selected['Nstar']:.1f}, "
+        f"<i>m</i> = {selected['m']:.4f}, and RMSE = {selected['RMSE']:.6f}. "
+        "Graph 5-2 can be used interactively to compare the monitoring-updated prediction at different monitoring stages."
     )
 
     st.markdown(f'<div class="eng-comment"><b>1. Terminal response.</b> {comment1}</div>', unsafe_allow_html=True)

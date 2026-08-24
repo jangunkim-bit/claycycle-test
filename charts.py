@@ -205,52 +205,81 @@ def calibration_figure(fit_results, e_static, e_t_design, n_design, m_design, i_
     return _style_axes(fig)
 
 
-def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
+def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm, selected_dataset=None):
+    """Interactive monitoring-stage evolution chart.
+
+    selected_dataset is the monitoring Data number to treat as the active update.
+    If omitted or invalid, the longest monitoring dataset is used (Latest).
+    """
     fig = go.Figure()
     xvals = [float(r["imax"]) for r in fit_results]
     yvals = [float(r["delta_ST_mm"]) for r in fit_results]
-    latest_x = xvals[-1]
-    latest_delta_st = yvals[-1]
+    dataset_ids = [int(r["dataset"]) for r in fit_results]
+
+    if selected_dataset not in dataset_ids:
+        selected_dataset = dataset_ids[-1]
+    selected_idx = dataset_ids.index(int(selected_dataset))
+    selected_x = xvals[selected_idx]
+    selected_delta_st = yvals[selected_idx]
+    is_actual_latest = selected_idx == len(fit_results) - 1
     stability_threshold = 1.0
 
-    if len(yvals) >= 2 and abs(yvals[-2]) > 1e-12:
-        latest_change_pct = abs(latest_delta_st - yvals[-2]) / abs(yvals[-2]) * 100.0
-        is_stable = latest_change_pct <= stability_threshold
+    if selected_idx >= 1 and abs(yvals[selected_idx - 1]) > 1e-12:
+        previous_dataset = dataset_ids[selected_idx - 1]
+        selected_change_pct = (
+            abs(selected_delta_st - yvals[selected_idx - 1])
+            / abs(yvals[selected_idx - 1]) * 100.0
+        )
+        is_stable = selected_change_pct <= stability_threshold
     else:
-        latest_change_pct = None
+        previous_dataset = None
+        selected_change_pct = None
         is_stable = False
 
-    # Blue evolution curve only. Markers and labels are drawn separately so
-    # the latest point can be highlighted without Plotly mixing text styles.
     fig.add_trace(go.Scatter(
         x=xvals, y=yvals, mode="lines",
         name="Monitoring-based prediction",
         line=dict(width=3, color=BLUE, shape="spline"),
-        hoverinfo="skip",
+        customdata=dataset_ids,
+        hovertemplate=(
+            "Data %{customdata}<br>i<sub>max</sub> = %{x:,.0f}<br>"
+            "ΔS<sub>T</sub> = %{y:.2f} mm<extra></extra>"
+        ),
     ))
 
-    if len(xvals) > 1:
+    other_indices = [j for j in range(len(fit_results)) if j != selected_idx]
+    if other_indices:
         fig.add_trace(go.Scatter(
-            x=xvals[:-1], y=yvals[:-1], mode="markers+text",
-            text=[f'D{r["dataset"]}' for r in fit_results[:-1]],
+            x=[xvals[j] for j in other_indices],
+            y=[yvals[j] for j in other_indices],
+            mode="markers+text",
+            text=[f'D{dataset_ids[j]}' for j in other_indices],
             textposition="top center",
+            customdata=[dataset_ids[j] for j in other_indices],
             showlegend=False,
             marker=dict(size=10, color=BLUE, line=dict(color="white", width=2)),
-            hovertemplate="i<sub>max</sub> = %{x:,.0f}<br>ΔS<sub>T</sub> = %{y:.2f} mm<extra></extra>",
+            hovertemplate=(
+                "<b>Data %{customdata}</b><br>i<sub>max</sub> = %{x:,.0f}<br>"
+                "ΔS<sub>T</sub> = %{y:.2f} mm<br><b>Click to select</b><extra></extra>"
+            ),
         ))
 
+    selected_suffix = "Latest" if is_actual_latest else "Selected"
     fig.add_trace(go.Scatter(
-        x=[latest_x], y=[latest_delta_st], mode="markers+text",
-        text=[f'D{fit_results[-1]["dataset"]} (Latest)'],
+        x=[selected_x], y=[selected_delta_st], mode="markers+text",
+        text=[f'D{selected_dataset} ({selected_suffix})'],
         textposition="bottom center",
+        customdata=[int(selected_dataset)],
         showlegend=False,
         marker=dict(size=15, color=GREEN, symbol="diamond", line=dict(color="white", width=2.2)),
         textfont=dict(size=13, color=GREEN),
-        hovertemplate="<b>Latest monitoring prediction</b><br>i<sub>max</sub> = %{x:,.0f}<br>ΔS<sub>T</sub> = %{y:.2f} mm<extra></extra>",
+        hovertemplate=(
+            f"<b>{selected_suffix} monitoring prediction</b><br>"
+            "Data %{customdata}<br>i<sub>max</sub> = %{x:,.0f}<br>"
+            "ΔS<sub>T</sub> = %{y:.2f} mm<extra></extra>"
+        ),
     ))
 
-    # Explicit shapes and paper-referenced annotations are used instead of
-    # add_hline() so their color and label positions remain fixed in Streamlit.
     fig.add_shape(
         type="line", xref="paper", x0=0, x1=1, yref="y",
         y0=design_delta_st_mm, y1=design_delta_st_mm,
@@ -258,7 +287,7 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
     )
     fig.add_shape(
         type="line", xref="paper", x0=0, x1=1, yref="y",
-        y0=latest_delta_st, y1=latest_delta_st,
+        y0=selected_delta_st, y1=selected_delta_st,
         line=dict(color=GREEN, width=2.4, dash="dot"), layer="below",
     )
 
@@ -270,8 +299,11 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
         font=dict(size=12, color=RED),
     )
     fig.add_annotation(
-        x=0.985, y=latest_delta_st, xref="paper", yref="y",
-        text=f"Monitoring-updated Δ<i>S</i><sub>T</sub> = {latest_delta_st:.1f} mm",
+        x=0.985, y=selected_delta_st, xref="paper", yref="y",
+        text=(
+            f"Monitoring-updated Δ<i>S</i><sub>T</sub> (D{selected_dataset}) "
+            f"= {selected_delta_st:.1f} mm"
+        ),
         showarrow=False, xanchor="right", yanchor="bottom", yshift=8,
         bgcolor="rgba(255,255,255,0.90)",
         font=dict(size=12, color=GREEN),
@@ -279,15 +311,22 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
 
     if is_stable:
         status_text = (
-            f"<b>STABLE</b><br>Latest change = {latest_change_pct:.2f}% ≤ {stability_threshold:.1f}%"
+            f"<b>STABLE</b><br>D{previous_dataset} → D{selected_dataset} change "
+            f"= {selected_change_pct:.2f}% ≤ {stability_threshold:.1f}%"
         )
         status_color = GREEN
         status_bg = "rgba(31,122,92,0.10)"
     else:
-        if latest_change_pct is None:
-            detail = "At least two monitoring results are required."
+        if selected_change_pct is None:
+            detail = (
+                f"D{selected_dataset} has no previous monitoring stage.<br>"
+                "At least two monitoring stages are required."
+            )
         else:
-            detail = f"Latest change = {latest_change_pct:.2f}% > {stability_threshold:.1f}%"
+            detail = (
+                f"D{previous_dataset} → D{selected_dataset} change "
+                f"= {selected_change_pct:.2f}% > {stability_threshold:.1f}%"
+            )
         status_text = (
             f"<b>INSUFFICIENT</b><br>{detail}<br>Additional monitoring data are required."
         )
@@ -312,7 +351,7 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
     max_decade = int(np.ceil(np.log10(xmax)))
     tickvals = [10 ** p for p in range(min_decade, max_decade + 1)]
 
-    all_y = yvals + [float(design_delta_st_mm), latest_delta_st]
+    all_y = yvals + [float(design_delta_st_mm), selected_delta_st]
     y_min = min(all_y)
     y_max = max(all_y)
     y_span = max(y_max - y_min, 1.0)
@@ -330,5 +369,6 @@ def terminal_settlement_evolution_figure(fit_results, design_delta_st_mm):
     fig.update_layout(
         height=520, margin=dict(l=70, r=35, t=35, b=80),
         showlegend=False,
+        clickmode="event+select",
     )
     return _style_axes(fig)
