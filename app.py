@@ -47,7 +47,7 @@ with st.container(border=True):
 
         input_label('Initial void ratio at <i>σ</i>′<sub>v</sub> = 1 kPa, <i>e</i><sub>0</sub>')
         e0 = st.number_input(
-            "e0 hidden", min_value=0.05, value=1.6214, step=0.01, format="%.4f",
+            "e0 hidden", min_value=0.05, value=1.9547, step=0.01, format="%.4f",
             label_visibility="collapsed", key="e0"
         )
 
@@ -107,15 +107,24 @@ with st.container(border=True):
 # -----------------------------------------------------------------------------
 # Automatic design-stage calculations
 # -----------------------------------------------------------------------------
-# e0 is defined at sigma'_v = 1 kPa. Therefore eb and estatic depend on the
-# compression relation and stress states, not on the clay-layer thickness H0.
+# e0 is the reference void ratio at sigma'_v = 1 kPa. Therefore eb and estatic
+# are calculated directly from the compression relation and do not depend on H0.
+# For converting the actual initial layer thickness H0 to Hb and Hpeak, however,
+# the in-situ initial void ratio ei is evaluated internally at the layer mid-depth
+# self-weight effective stress using gamma_sat = 19 kN/m3 and gamma_w = 9.81 kN/m3.
 sigma_ref = 1.0
+gamma_sat = 19.0
+gamma_w = 9.81
+gamma_sub = gamma_sat - gamma_w
+sigma_initial = max(gamma_sub * (h0 / 2.0), 1e-6)
+e_initial = e0 - cc * np.log10(sigma_initial / sigma_ref)
+
 stress_ratio = delta_sigma / sigma_v0
 eb = e0 - cc * np.log10(sigma_v0 / sigma_ref)
 e_static = e0 - cc * np.log10((sigma_v0 + delta_sigma) / sigma_ref)
 
-h_b = h0 * (1.0 + eb) / (1.0 + e0)
-h_peak = h0 * (1.0 + e_static) / (1.0 + e0)
+h_b = h0 * (1.0 + eb) / (1.0 + e_initial)
+h_peak = h0 * (1.0 + e_static) / (1.0 + e_initial)
 s_static_mm = (h0 - h_peak) * 1000.0
 
 delta_eT_design = predict_delta_eT_pysr(eb, stress_ratio)
@@ -147,8 +156,9 @@ with r7:
     result_card('Curvature parameter, <i>m</i>', f"{m_design:.2f}")
 
 st.caption(
-    "The initial void ratio e₀ is defined at σ′v = 1 kPa. Accordingly, eᵦ and e_static are independent of H₀; "
-    "H₀ affects layer thickness and settlement magnitudes only."
+    "The reference void ratio e₀ is defined at σ′v = 1 kPa, so eᵦ and e_static are independent of H₀. "
+    "For layer-thickness and static-settlement conversion, the in-situ initial void ratio is evaluated internally "
+    "at the mid-depth self-weight effective stress."
 )
 
 # -----------------------------------------------------------------------------
@@ -347,7 +357,8 @@ else:
 
 st.divider()
 st.caption(
-    "The initial void ratio e0 is defined at σ′v = 1 kPa. Baseline and static void ratios are calculated from the "
-    "compression relation and are independent of H0. Terminal void ratio change is predicted using PySR Equation ID 3. "
-    "Monitoring calibration uses each dataset's measured e1 at i = 1 and freely fits eT, N*, and m."
+    "The reference void ratio e0 is defined at σ′v = 1 kPa. Baseline and static void ratios are calculated from the "
+    "compression relation and are independent of H0. For thickness and settlement conversion, the in-situ initial void "
+    "ratio is evaluated internally at the mid-depth self-weight effective stress. Terminal void ratio change is predicted "
+    "using PySR Equation ID 3. Monitoring calibration uses each dataset's measured e1 at i = 1 and freely fits eT, N*, and m."
 )
