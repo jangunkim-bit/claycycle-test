@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1480" height="360" viewBox="0 0 1480 360">
+  <defs>
+    <style>
+      .t{font-family:Arial,Helvetica,sans-serif;fill:#16324F}.h{font-size:20px;font-weight:700}.s{font-size:14px;fill:#526170}.a{stroke:#16324F;stroke-width:2;fill:none}.b{stroke:#D9E2EC;stroke-width:1.5;fill:#FFFFFF}.r{stroke:#D94B4B;stroke-width:3;fill:none}.bl{stroke:#2E6F95;stroke-width:3;fill:none}.dash{stroke-dasharray:6 5}.tiny{font-size:13px}.mid{font-size:16px;font-weight:700}
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 z" fill="#16324F"/></marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2E6F95"/></marker>
+    <linearGradient id="soil" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#EED9B7"/><stop offset="1" stop-color="#D7B487"/></linearGradient>
+  </defs>
+  <rect x="2" y="2" width="1476" height="356" rx="18" class="b"/>
+
+  <!-- panel 1 -->
+  <text x="180" y="32" text-anchor="middle" class="t h">1. Repetitive Loading</text>
+  <text x="180" y="55" text-anchor="middle" class="t h">on Soft Clay</text>
+  <rect x="65" y="135" width="230" height="102" rx="4" fill="url(#soil)" stroke="#C7A77F"/>
+  <rect x="95" y="115" width="170" height="12" rx="2" fill="#8795A5"/>
+  <line x1="180" y1="78" x2="180" y2="108" stroke="#D94B4B" stroke-width="3" marker-end="url(#arrow)"/>
+  <line x1="180" y1="108" x2="180" y2="78" stroke="#D94B4B" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="215" y="92" class="t mid" style="fill:#D94B4B">Δσ</text>
+  <text x="180" y="186" text-anchor="middle" class="t mid">Normally consolidated clay</text>
+
+  <!-- arrow 1 -->
+  <line x1="315" y1="175" x2="365" y2="175" class="a" marker-end="url(#arrow)"/>
+
+  <!-- panel 2 -->
+  <text x="550" y="32" text-anchor="middle" class="t h">2. Long-Term Response</text>
+  <text x="550" y="55" text-anchor="middle" class="t h">(e–i Behavior)</text>
+  <line x1="425" y1="95" x2="425" y2="245" class="a"/>
+  <line x1="425" y1="245" x2="700" y2="245" class="a"/>
+  <text x="410" y="88" class="t mid">e</text><text x="690" y="267" class="t mid">i</text>
+  <path d="M450 115 C495 155 545 180 605 200 C635 210 660 216 690 220" class="r"/>
+  <line x1="425" y1="220" x2="700" y2="220" stroke="#D94B4B" stroke-width="1.5" class="dash"/>
+  <line x1="570" y1="184" x2="570" y2="245" stroke="#9AA7B5" stroke-width="1.5" class="dash"/>
+  <text x="390" y="120" class="t tiny">e_static</text><text x="392" y="225" class="t tiny">e_T</text><text x="558" y="270" class="t tiny">N*</text>
+
+  <!-- arrow 2 -->
+  <line x1="720" y1="175" x2="770" y2="175" class="a" marker-end="url(#arrow)"/>
+
+  <!-- panel 3 -->
+  <text x="945" y="32" text-anchor="middle" class="t h">3. Settlement Assessment</text>
+  <text x="945" y="55" text-anchor="middle" class="t h">(How much? How fast?)</text>
+  <rect x="810" y="82" width="270" height="170" rx="14" fill="#F7FAFC" stroke="#D7E2EC" stroke-width="1.5"/>
+  <rect x="842" y="106" width="78" height="43" rx="8" fill="#F1F7FB" stroke="#A8C6DE"/><text x="881" y="133" text-anchor="middle" class="t mid">S_static</text>
+  <text x="945" y="134" text-anchor="middle" class="t h">+</text>
+  <rect x="970" y="106" width="78" height="43" rx="8" fill="#FFF5F5" stroke="#E7B3B3"/><text x="1009" y="133" text-anchor="middle" class="t mid" style="fill:#B93838">ΔS_T</text>
+  <line x1="945" y1="153" x2="945" y2="174" class="a" marker-end="url(#arrow)"/>
+  <rect x="889" y="181" width="112" height="36" rx="8" fill="#16324F"/><text x="945" y="205" text-anchor="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;fill:#FFFFFF">S_total</text>
+  <text x="830" y="237" class="t s">How much settlement?  •  How fast does it accumulate?</text>
+
+  <!-- arrow 3 -->
+  <line x1="1095" y1="175" x2="1145" y2="175" class="a" marker-end="url(#arrow)"/>
+
+  <!-- panel 4 -->
+  <text x="1300" y="32" text-anchor="middle" class="t h">4. Monitoring-Based</text>
+  <text x="1300" y="55" text-anchor="middle" class="t h">Update</text>
+  <line x1="1185" y1="90" x2="1185" y2="205" class="a"/>
+  <line x1="1185" y1="205" x2="1430" y2="205" class="a"/>
+  <path d="M1205 108 C1240 135 1280 153 1320 165 C1360 177 1395 184 1420 189" class="bl"/>
+  <g fill="#2E6F95"><circle cx="1208" cy="110" r="5"/><circle cx="1245" cy="138" r="5"/><circle cx="1282" cy="154" r="5"/><circle cx="1322" cy="166" r="5"/><circle cx="1364" cy="178" r="5"/><circle cx="1418" cy="189" r="5"/></g>
+  <text x="1172" y="86" class="t mid">e</text><text x="1418" y="226" class="t mid">i</text>
+  <rect x="1200" y="236" width="225" height="58" rx="10" fill="#F1FAF5" stroke="#AFCFBE"/>
+  <text x="1312" y="260" text-anchor="middle" class="t mid" style="fill:#256645">Update e_T, N*, m</text>
+  <text x="1312" y="282" text-anchor="middle" class="t s" style="fill:#256645">Model calibration using measured i–e data</text>
+
+  <!-- feedback -->
+  <path d="M1310 302 L1310 325 L520 325 L520 288" stroke="#2E6F95" stroke-width="2" fill="none" marker-end="url(#arrowBlue)"/>
+  <text x="900" y="348" text-anchor="middle" class="t s" style="fill:#2E6F95;font-weight:700">Monitoring feedback improves the long-term prediction</text>
+</svg>
